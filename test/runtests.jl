@@ -1,7 +1,7 @@
 ENV["GKSwstype"] = "100"
 
 using BiblioFetch, Test
-const dirs = []
+const dirs = ["unit"]
 
 const FIG_BASE = joinpath(pkgdir(BiblioFetch), "docs", "src", "assets")
 const PATHS = Dict()
