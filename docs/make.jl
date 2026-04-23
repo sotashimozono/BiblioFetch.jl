@@ -27,7 +27,8 @@ makedocs(;
         assets=["assets/favicon.ico", "assets/custom.css"],
     ),
     modules=[BiblioFetch],
-    pages=["Home" => "index.md"],
+    pages=["Home" => "index.md", "Usage Guide" => "guide.md", "API Reference" => "api.md"],
+    checkdocs=:exports,
 )
 
 deploydocs(; repo="github.com/sotashimozono/BiblioFetch.jl.git", devbranch="main")

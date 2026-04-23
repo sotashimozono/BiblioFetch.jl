@@ -130,10 +130,13 @@ your laptop's proxy connection for the duration of the ssh session.
 ## Store layout
 
 ```
-<store_root>/
-  pdfs/<safekey>.pdf         # the actual PDF
-  metadata/<safekey>.toml    # one TOML file per paper (status, source, bib fields)
-  incoming/                  # reserved (pending raw references)
+<target>/
+  <safekey>.pdf              # PDFs for ungrouped entries live at the root
+  <group>/<safekey>.pdf      # grouped entries land in their subdirectory
+  <group>/<sub>/<safekey>.pdf  # arbitrary nesting via [doi.group.sub]
+  refs.bib                   # optional, when [folder].bibtex is set
+  .metadata/<safekey>.toml   # one hidden TOML per paper (status, source, attempts)
+  .metadata/run.log          # append-only run log
 ```
 
 The metadata store is plain TOML so rsync, grep, git, and manual edits all
@@ -173,8 +176,8 @@ fetched_at = "2026-04-23T…"
 2. **Testing & Code Quality**
     * [ ] **Codecov**: Register repo at [Codecov](https://app.codecov.io/), add `CODECOV_TOKEN` secret, update badge above.
 3. **Documentation (optional)**
-    * [ ] Rename `.github/workflows/Documentation.yml.disabled` → `.yml` to enable doc builds.
-    * [ ] Set GitHub Pages source to `gh-pages` branch after first successful build.
+    * [x] Rename `.github/workflows/Documentation.yml.disabled` → `.yml` to enable doc builds.
+    * [ ] Set GitHub Pages source to `gh-pages` branch after first successful build (required once the workflow first succeeds).
 4. **Personalization**
     * [x] LICENSE year/name
     * [x] Badge URLs point to `sotashimozono/BiblioFetch.jl`

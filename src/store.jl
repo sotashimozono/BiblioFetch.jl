@@ -1,5 +1,12 @@
 const METADATA_DIRNAME = ".metadata"
 
+"""
+    Store(root)
+
+Handle on a BiblioFetch store directory. Holds the root path; all PDF and
+metadata paths are derived from it. Construct with [`open_store`](@ref) — the
+raw constructor does not create the backing directory layout.
+"""
 struct Store
     root::String
 end
@@ -104,12 +111,25 @@ function _stringify(x)
     end
 end
 
+"""
+    list_entries(store) -> Vector{String}
+
+Return the filesystem-safe keys of every paper currently tracked in the store,
+sorted alphabetically. These are the stems of files under `<root>/.metadata/`,
+not the canonical DOI/arXiv keys (use [`entry_info`](@ref) to get the key).
+"""
 function list_entries(s::Store)
     dir = joinpath(s.root, METADATA_DIRNAME)
     isdir(dir) || return String[]
     return sort([splitext(f)[1] for f in readdir(dir) if endswith(f, ".toml")])
 end
 
+"""
+    entry_info(store, key) -> NamedTuple | Nothing
+
+Summary record for one entry — `key`, `title`, `status`, `source`, `group`,
+`pdf_path`, `year`. Returns `nothing` when the key has no metadata on disk.
+"""
 function entry_info(s::Store, key::AbstractString)
     md = read_metadata(s, key)
     isempty(md) && return nothing

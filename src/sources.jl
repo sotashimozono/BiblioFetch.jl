@@ -23,7 +23,21 @@ end
 const _DOI_RE = r"^10\.\d{4,9}/\S+$"i
 const _ARXIV_RE = r"^(arxiv:)?(\d{4}\.\d{4,5}(v\d+)?|[a-z\-]+(\.[A-Z]{2})?/\d{7}(v\d+)?)$"i
 
+"""
+    is_doi(s) -> Bool
+
+Whether `s` looks like a DOI (`10.xxxx/anything`). Strips surrounding whitespace
+but does not otherwise transform the input.
+"""
 is_doi(s::AbstractString) = occursin(_DOI_RE, strip(s))
+
+"""
+    is_arxiv(s) -> Bool
+
+Whether `s` looks like an arXiv id — both the new-style (`1706.03762`,
+optionally with a version suffix `v2` and an `arxiv:` prefix) and the legacy
+slash form (`cond-mat/0608208`).
+"""
 is_arxiv(s::AbstractString) = occursin(_ARXIV_RE, strip(s))
 
 """

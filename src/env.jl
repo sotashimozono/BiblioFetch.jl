@@ -23,6 +23,14 @@ function _read_config(path::AbstractString)
     end
 end
 
+"""
+    load_config(; path = ENV["BIBLIOFETCH_CONFIG"] or default)
+        -> (config::Dict, path_or_nothing)
+
+Read and parse the global BiblioFetch config TOML. Returns `(Dict(), nothing)`
+when no file is present at `path`. The default location is
+`~/.config/bibliofetch/config.toml`; `\$BIBLIOFETCH_CONFIG` overrides it.
+"""
 function load_config(;
     path::AbstractString=get(ENV, "BIBLIOFETCH_CONFIG", DEFAULT_CONFIG_PATH)
 )
