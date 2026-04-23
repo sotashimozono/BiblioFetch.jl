@@ -26,6 +26,7 @@ include("core/dedup.jl")          # depends on store + sha256 from fetch
 include("core/search.jl")         # depends on store + refs (_normalize_group)
 include("core/status.jl")         # depends on env (Runtime) + sources (USER_AGENT)
 include("io/bibtex.jl")
+include("io/bibtex_import.jl")    # inverse direction: read existing .bib into store
 include("core/job.jl")            # depends on fetch + store + bibtex
 include("core/watch.jl")          # depends on job.run
 include("cli.jl")
@@ -36,6 +37,7 @@ export normalize_key, is_doi, is_arxiv
 export fetch_paper!, sync!
 export FetchEntry, FetchJob, FetchJobResult, AttemptLog, load_job
 export bibtex_entry, write_bibtex
+export BibEntry, parse_bibtex, bibentry_to_ref, import_bib!
 export find_duplicates, resolve_duplicates!
 export search_entries, SearchMatch
 export datacite_lookup

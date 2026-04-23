@@ -6,6 +6,7 @@ Usage:
   bibliofetch status [--timeout <s>]      Probe supported APIs; report what's reachable now
   bibliofetch run <job.toml>              Execute a job TOML (groups, parallel, log)
   bibliofetch bib <dir> [--out <path>]    Export BibTeX for all ok entries in a store root
+  bibliofetch import <refs.bib>           Queue DOIs / arXiv ids from an existing .bib file
   bibliofetch dedup [<dir>] [--apply]     Report (or apply with --apply) PDF-hash duplicates
   bibliofetch watch <job.toml>            Watch job file; re-run on each save (Ctrl+C to stop)
   bibliofetch add <ref> [<ref> …]         Queue refs into the global store
@@ -445,6 +446,44 @@ function _cmd_watch(args)
     return 0
 end
 
+function _cmd_import(args)
+    isempty(args) && (println(stderr, "import: need a .bib path"); return 2)
+    path = args[1]
+    dry = "--dry-run" in args || "-n" in args
+    isfile(path) || (println(stderr, "import: not a file: $(path)"); return 2)
+
+    rt = detect_environment(; probe=false)
+    if dry
+        text = read(path, String)
+        entries = parse_bibtex(text)
+        n_ok, n_skip = 0, 0
+        for e in entries
+            ref = bibentry_to_ref(e)
+            if ref === nothing
+                @printf("  ✗ %-30s  (no doi / eprint / url)\n", e.citekey)
+                n_skip += 1
+            else
+                @printf("  ✓ %-30s  → %s\n", e.citekey, ref)
+                n_ok += 1
+            end
+        end
+        println("\n(dry run) would queue $(n_ok) entries, skip $(n_skip).")
+        return 0
+    end
+    store = open_store(rt.store_root)
+    res = import_bib!(store, path)
+    for a in res.added
+        @printf("  ✓ %-30s  → %s\n", a.citekey, a.key)
+    end
+    for s in res.skipped
+        @printf("  ✗ %-30s  — %s\n", s.citekey, s.reason)
+    end
+    println(
+        "\nimport: queued $(length(res.added)), skipped $(length(res.skipped)) → $(store.root)",
+    )
+    return 0
+end
+
 function _cmd_dedup(args)
     apply = "--apply" in args
     rt = detect_environment(; probe=false)
@@ -539,6 +578,8 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
             _cmd_run(rest)
         elseif cmd == "bib"
             _cmd_bib(rest)
+        elseif cmd == "import"
+            _cmd_import(rest)
         elseif cmd == "dedup"
             _cmd_dedup(rest)
         elseif cmd == "watch"
