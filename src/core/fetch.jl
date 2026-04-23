@@ -258,8 +258,7 @@ function fetch_paper!(
         # automatically next time the network comes back; that's exactly the
         # laptop-at-home → back-to-university flow.
         network_deferred =
-            isempty(attempts) ||
-            all(a -> a.http_status === nothing, attempts)
+            isempty(attempts) || all(a -> a.http_status === nothing, attempts)
         md["status"] = network_deferred ? "pending" : "failed"
         md["error"] = if isempty(candidates)
             "no candidate PDF URL (no reachable source)"
@@ -272,12 +271,7 @@ function fetch_paper!(
         md["attempts"] = _attempts_to_dict.(attempts)
         write_metadata!(store, key, md)
         return FetchResult(
-            key,
-            false,
-            network_deferred ? :deferred : :none,
-            nothing,
-            md["error"],
-            attempts,
+            key, false, network_deferred ? :deferred : :none, nothing, md["error"], attempts
         )
     else
         md["status"] = "ok"

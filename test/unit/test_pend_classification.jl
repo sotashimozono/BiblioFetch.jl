@@ -7,16 +7,32 @@ using Test
 # server, so the entry is network-deferred → `:pending`. Any server response
 # (4xx / 5xx / landing-page bait) makes it truly `:failed`.
 
-_bare_rt(; email=nothing) = withenv(
-    "HTTP_PROXY" => nothing, "HTTPS_PROXY" => nothing,
-    "http_proxy" => nothing, "https_proxy" => nothing,
-    "BIBLIOFETCH_CONFIG" => nothing,
-) do
-    rt = BiblioFetch.detect_environment(; probe=false)
-    # no `Runtime` setters, so rebuild with the requested email
-    email === nothing ? rt :
-        BiblioFetch.Runtime(rt.hostname, rt.profile, rt.proxy, rt.proxy_source,
-                            rt.reachable, rt.store_root, email, rt.mode, rt.config_path)
+function _bare_rt(; email=nothing)
+    withenv(
+        "HTTP_PROXY" => nothing,
+        "HTTPS_PROXY" => nothing,
+        "http_proxy" => nothing,
+        "https_proxy" => nothing,
+        "BIBLIOFETCH_CONFIG" => nothing,
+    ) do
+        rt = BiblioFetch.detect_environment(; probe=false)
+        # no `Runtime` setters, so rebuild with the requested email
+        if email === nothing
+            rt
+        else
+            BiblioFetch.Runtime(
+            rt.hostname,
+            rt.profile,
+            rt.proxy,
+            rt.proxy_source,
+            rt.reachable,
+            rt.store_root,
+            email,
+            rt.mode,
+            rt.config_path,
+        )
+        end
+    end
 end
 
 @testset "fetch_paper!: no candidates → :pending (network-deferred)" begin
@@ -25,7 +41,7 @@ end
         rt = _bare_rt()
         # sources=["direct"] but rt.proxy === nothing → no candidate is added
         res = BiblioFetch.fetch_paper!(
-            store, "10.1234/x"; rt=rt, sources=[:direct], verbose=false,
+            store, "10.1234/x"; rt=rt, sources=[:direct], verbose=false
         )
         @test !res.ok
         @test res.source === :deferred
@@ -50,15 +66,15 @@ end
     # attempts and asserting downstream status. This test mirrors the logic
     # the deferred branch in fetch.jl uses.
     att_all_conn_err = [
-        BiblioFetch.AttemptLog(:unpaywall, "https://u/x", false, nothing,
-                               "connection refused", 0.1),
-        BiblioFetch.AttemptLog(:arxiv, "https://a/x", false, nothing,
-                               "timeout", 0.2),
+        BiblioFetch.AttemptLog(
+            :unpaywall, "https://u/x", false, nothing, "connection refused", 0.1
+        ),
+        BiblioFetch.AttemptLog(:arxiv, "https://a/x", false, nothing, "timeout", 0.2),
     ]
     @test all(a -> a.http_status === nothing, att_all_conn_err)
 
     att_with_http = [
-        BiblioFetch.AttemptLog(:unpaywall, "https://u/x", false, 404, "not found", 0.1),
+        BiblioFetch.AttemptLog(:unpaywall, "https://u/x", false, 404, "not found", 0.1)
     ]
     @test !all(a -> a.http_status === nothing, att_with_http)
 end
@@ -73,9 +89,7 @@ end
     # For now this testset asserts the structural invariant that governs the
     # new classification code: if ANY attempt has http_status ≠ nothing, the
     # entry is :failed not :pending.
-    attempts = [
-        BiblioFetch.AttemptLog(:arxiv, "https://a/x", false, 404, "not found", 0.1),
-    ]
+    attempts = [BiblioFetch.AttemptLog(:arxiv, "https://a/x", false, 404, "not found", 0.1)]
     any_http = any(a -> a.http_status !== nothing, attempts)
     @test any_http       # ⇒ would classify as :failed in fetch.jl
 end
@@ -85,14 +99,17 @@ end
         target = joinpath(dir, "papers")
         job_path = joinpath(dir, "job.toml")
         open(job_path, "w") do io
-            write(io, """
-                [folder]
-                target = "$(target)"
-                [fetch]
-                sources = ["direct"]
-                [doi]
-                list = ["10.1234/x", "10.1234/y"]
-            """)
+            write(
+                io,
+                """
+          [folder]
+          target = "$(target)"
+          [fetch]
+          sources = ["direct"]
+          [doi]
+          list = ["10.1234/x", "10.1234/y"]
+      """,
+            )
         end
         rt = _bare_rt()
 
