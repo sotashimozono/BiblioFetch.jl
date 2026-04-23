@@ -47,7 +47,7 @@ end
 
 @testset "aps_tdm_url: base_url override for testing" begin
     u = BiblioFetch.aps_tdm_url(
-        "10.1103/PhysRevResearch.1.033027"; base_url="https://127.0.0.1/",
+        "10.1103/PhysRevResearch.1.033027"; base_url="https://127.0.0.1/"
     )
     @test startswith(u, "https://127.0.0.1/10.1103/")
 end
@@ -76,7 +76,7 @@ end
 @testset "_source_extra_headers: :aps → Bearer header; others → empty" begin
     withenv("APS_API_KEY" => "TEST") do
         @test BiblioFetch._source_extra_headers(:aps) ==
-              Pair{String,String}[("Authorization" => "Bearer TEST")]
+            Pair{String,String}[("Authorization" => "Bearer TEST")]
     end
     withenv("APS_API_KEY" => nothing) do
         @test isempty(BiblioFetch._source_extra_headers(:aps))
@@ -97,7 +97,8 @@ end
         mktempdir() do dir
             dest = joinpath(dir, "out.pdf")
             r = BiblioFetch._http_download_pdf(
-                base * "whatever", dest;
+                base * "whatever",
+                dest;
                 extra_headers=["Authorization" => "Bearer ABCD"],
                 timeout=5,
             )
@@ -111,14 +112,17 @@ end
     mktempdir() do dir
         job_path = joinpath(dir, "job.toml")
         open(job_path, "w") do io
-            write(io, """
-                [folder]
-                target = "$(dir)/papers"
-                [fetch]
-                sources = ["unpaywall", "arxiv", "aps"]
-                [doi]
-                list = ["10.1103/PhysRevB.99.214433"]
-            """)
+            write(
+                io,
+                """
+          [folder]
+          target = "$(dir)/papers"
+          [fetch]
+          sources = ["unpaywall", "arxiv", "aps"]
+          [doi]
+          list = ["10.1103/PhysRevB.99.214433"]
+      """,
+            )
         end
         job = BiblioFetch.load_job(job_path)
         @test :aps in job.sources
@@ -131,7 +135,7 @@ end
     # invariant indirectly by asserting is_aps_doi + auth_header gating.
     withenv("APS_API_KEY" => "TEST") do
         @test BiblioFetch.is_aps_doi("10.1103/PhysRevB.99.214433") &&
-              BiblioFetch.aps_tdm_auth_header() !== nothing
+            BiblioFetch.aps_tdm_auth_header() !== nothing
         @test !BiblioFetch.is_aps_doi("10.1038/nature12345")
     end
     withenv("APS_API_KEY" => nothing) do

@@ -92,8 +92,7 @@ function _http_download_pdf(
     tmp = dest * ".part"
 
     headers = Pair{String,String}[
-        "User-Agent" => USER_AGENT,
-        "Accept" => "application/pdf,*/*",
+        "User-Agent" => USER_AGENT, "Accept" => "application/pdf,*/*"
     ]
     append!(headers, extra_headers)
 
@@ -286,8 +285,7 @@ function fetch_paper!(
 
     # 4) APS Harvest TDM — institutional/authenticated access to APS PDFs.
     # Only sensible for 10.1103/* DOIs and only when APS_API_KEY is configured.
-    if want(:aps) && doi !== nothing && is_aps_doi(doi) &&
-       aps_tdm_auth_header() !== nothing
+    if want(:aps) && doi !== nothing && is_aps_doi(doi) && aps_tdm_auth_header() !== nothing
         push!(candidates, (:aps, aps_tdm_url(doi)))
     end
 
