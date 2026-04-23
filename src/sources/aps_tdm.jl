@@ -14,9 +14,14 @@
 # physics use case, and it's complementary to Unpaywall (Unpaywall gives
 # the publisher URL when gold-OA, but not most paywalled APS papers).
 
-# APS DOIs live under the 10.1103 prefix. Checking before dispatching to
-# APS avoids spraying harvest.aps.org with DOIs that definitely won't
-# resolve (and avoids burning quota).
+"""
+    is_aps_doi(doi) -> Bool
+
+Whether `doi` is published by the American Physical Society — all APS DOIs
+live under the `10.1103/` prefix. Checked before dispatching to
+`harvest.aps.org` to avoid spraying the endpoint with DOIs that would 404
+anyway (and to conserve token quota).
+"""
 is_aps_doi(doi::AbstractString) = startswith(lowercase(strip(doi)), "10.1103/")
 
 """
