@@ -23,6 +23,7 @@ include("sources/aps_tdm.jl")            # APS Harvest TDM (token-gated)
 include("core/store.jl")
 include("core/fetch.jl")
 include("core/dedup.jl")          # depends on store + sha256 from fetch
+include("core/search.jl")         # depends on store + refs (_normalize_group)
 include("core/status.jl")         # depends on env (Runtime) + sources (USER_AGENT)
 include("io/bibtex.jl")
 include("core/job.jl")            # depends on fetch + store + bibtex
@@ -36,6 +37,7 @@ export fetch_paper!, sync!
 export FetchEntry, FetchJob, FetchJobResult, AttemptLog, load_job
 export bibtex_entry, write_bibtex
 export find_duplicates, resolve_duplicates!
+export search_entries, SearchMatch
 export datacite_lookup
 export s2_lookup
 export aps_tdm_url, is_aps_doi
