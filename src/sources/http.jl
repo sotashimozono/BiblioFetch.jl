@@ -3,7 +3,7 @@ const USER_AGENT = "BiblioFetch/0.1 (+https://github.com/; mailto:souta.shimozon
 # Default base URLs for the external APIs. Each lookup function accepts a
 # `base_url` kwarg that overrides these — used by the mock-server tests to
 # point the code at a local HTTP.serve handler without any monkey-patching.
-const CROSSREF_URL  = "https://api.crossref.org/works/"
+const CROSSREF_URL = "https://api.crossref.org/works/"
 const UNPAYWALL_URL = "https://api.unpaywall.org/v2/"
 const ARXIV_API_URL = "http://export.arxiv.org/api/query"
 
