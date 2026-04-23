@@ -45,8 +45,11 @@ using Test
         result = BiblioFetch.run(job_path; verbose=false, runtime=rt)
         @test result isa FetchJobResult
         @test length(result.entries) == 2
-        @test all(e -> e.status === :failed, result.entries)
-        @test all(e -> e.source === :none, result.entries)
+        # sources=["direct"] with no proxy produces zero candidates, which is
+        # classified as :pending (deferred — network unavailable) so sync will
+        # retry when the relevant route comes back. See fetch.jl:network_deferred.
+        @test all(e -> e.status === :pending, result.entries)
+        @test all(e -> e.source === :deferred, result.entries)
         @test all(e -> isempty(e.attempts), result.entries)  # no candidate URL produced
 
         # per-entry metadata TOML written to target/.metadata/, with correct group
@@ -60,8 +63,8 @@ using Test
         groups = String[]
         for f in tomls
             md = BiblioFetch.TOML.parsefile(joinpath(md_dir, f))
-            @test md["status"] == "failed"
-            @test md["error"] == "no candidate PDF URL"
+            @test md["status"] == "pending"
+            @test occursin("no candidate PDF URL", md["error"])
             push!(groups, String(get(md, "group", "")))
         end
         @test sort(groups) == ["", "grp"]

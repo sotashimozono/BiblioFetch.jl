@@ -419,7 +419,13 @@ function _run_one!(
         end
     end
 
-    e.status = res.ok ? (res.source === :cached ? :ok : :ok) : :failed
+    e.status = if res.ok
+        :ok
+    elseif res.source === :deferred
+        :pending   # network was off; sync will retry
+    else
+        :failed
+    end
     e.source = res.source
     e.pdf_path = res.pdf_path
     e.attempts = res.attempts
