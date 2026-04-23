@@ -10,7 +10,8 @@ using Test
 # edge sets are both non-empty.
 function _seed_graph_fixture(store::BiblioFetch.Store)
     BiblioFetch.write_metadata!(
-        store, "10.1234/a",
+        store,
+        "10.1234/a",
         Dict(
             "key" => "10.1234/a",
             "status" => "ok",
@@ -21,7 +22,8 @@ function _seed_graph_fixture(store::BiblioFetch.Store)
         ),
     )
     BiblioFetch.write_metadata!(
-        store, "10.1234/b",
+        store,
+        "10.1234/b",
         Dict(
             "key" => "10.1234/b",
             "status" => "pending",     # pending on purpose — exercises style path
@@ -34,7 +36,8 @@ function _seed_graph_fixture(store::BiblioFetch.Store)
         ),
     )
     BiblioFetch.write_metadata!(
-        store, "10.1234/c",
+        store,
+        "10.1234/c",
         Dict(
             "key" => "10.1234/c",
             "status" => "failed",
@@ -80,7 +83,7 @@ end
         d = to_dot(store)
         # ok / pending / failed pick up different fill colors
         @test occursin("fillcolor=\"#e0f0ff\"", d)   # ok (Alpha)
-        @test occursin("dashed",                d)   # pending (Beta)
+        @test occursin("dashed", d)   # pending (Beta)
         @test occursin("fillcolor=\"#ffe0e0\"", d)   # failed (Gamma)
     end
 end
@@ -116,9 +119,15 @@ end
         _seed_graph_fixture(store)
         # Add a lonely paper that's in the store but has no edges in or out
         BiblioFetch.write_metadata!(
-            store, "10.1234/lonely",
-            Dict("key" => "10.1234/lonely", "status" => "ok",
-                 "authors" => ["Solo"], "year" => 2024, "title" => "No refs"),
+            store,
+            "10.1234/lonely",
+            Dict(
+                "key" => "10.1234/lonely",
+                "status" => "ok",
+                "authors" => ["Solo"],
+                "year" => 2024,
+                "title" => "No refs",
+            ),
         )
 
         d_default = to_dot(store)
@@ -133,10 +142,14 @@ end
     mktempdir() do root
         store = BiblioFetch.open_store(root)
         BiblioFetch.write_metadata!(
-            store, "10.1234/seed",
+            store,
+            "10.1234/seed",
             Dict(
-                "key" => "10.1234/seed", "status" => "ok",
-                "authors" => ["Seed"], "year" => 2020, "title" => "Seed",
+                "key" => "10.1234/seed",
+                "status" => "ok",
+                "authors" => ["Seed"],
+                "year" => 2020,
+                "title" => "Seed",
                 # Points at a DOI the store doesn't have → no dangling edge
                 "referenced_dois" => ["10.9999/external-only"],
             ),
@@ -158,9 +171,9 @@ end
         m = to_mermaid(store)
 
         @test startswith(m, "graph LR\n")
-        @test occursin("classDef ok",      m)
+        @test occursin("classDef ok", m)
         @test occursin("classDef pending", m)
-        @test occursin("classDef failed",  m)
+        @test occursin("classDef failed", m)
 
         # Mermaid ids are alphanumeric-only (safekey uses `__` and `.` which
         # become underscores).
@@ -191,7 +204,7 @@ end
 @testset "_mermaid_id sanitisation" begin
     @test BiblioFetch._mermaid_id("arxiv__1706.03762") == "arxiv__1706_03762"
     @test BiblioFetch._mermaid_id("10.1103_physrevb.99.214433") ==
-          "10_1103_physrevb_99_214433"
+        "10_1103_physrevb_99_214433"
     @test BiblioFetch._mermaid_id("simple") == "simple"
 end
 

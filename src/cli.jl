@@ -400,17 +400,23 @@ function _cmd_graph(args)
     while i <= length(args)
         a = args[i]
         if a == "--format" && i < length(args)
-            format = args[i + 1]; i += 2
+            format = args[i + 1];
+            i += 2
         elseif a == "--out" && i < length(args)
-            out_path = args[i + 1]; i += 2
+            out_path = args[i + 1];
+            i += 2
         elseif a == "--queued"
-            queued = true; i += 1
+            queued = true;
+            i += 1
         elseif a == "--all"
-            include_iso = true; i += 1
+            include_iso = true;
+            i += 1
         elseif !startswith(a, "--")
-            dir = a; i += 1
+            dir = a;
+            i += 1
         else
-            println(stderr, "graph: unknown flag $(a)"); return 2
+            println(stderr, "graph: unknown flag $(a)");
+            return 2
         end
     end
     format in ("dot", "mermaid") ||
@@ -418,9 +424,11 @@ function _cmd_graph(args)
 
     rt = detect_environment(; probe=false)
     store = open_store(dir === nothing ? rt.store_root : dir)
-    txt = format == "dot" ?
-        to_dot(store; queued_only=queued, include_isolated=include_iso) :
+    txt = if format == "dot"
+        to_dot(store; queued_only=queued, include_isolated=include_iso)
+    else
         to_mermaid(store; queued_only=queued, include_isolated=include_iso)
+    end
     if isempty(out_path)
         print(txt)
     else

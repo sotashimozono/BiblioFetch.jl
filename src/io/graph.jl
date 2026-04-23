@@ -49,9 +49,7 @@ end
 
 # Collect the (from_safekey, to_safekey) pairs according to the requested
 # edge policy.
-function _collect_graph_edges(
-    nodes, key_to_safekey, md_by_key; queued_only::Bool=false,
-)
+function _collect_graph_edges(nodes, key_to_safekey, md_by_key; queued_only::Bool=false)
     edges = Tuple{String,String}[]   # (from_safekey, to_safekey)
     seen = Set{Tuple{String,String}}()
     push_edge!(a, b) = begin
@@ -141,7 +139,11 @@ function to_dot(store::Store; queued_only::Bool=false, include_isolated::Bool=fa
     println(io, "  edge [color=\"#888888\", arrowsize=0.7];")
     for sk in sort(visible)
         n = nodes[sk]
-        label = isempty(n.title) ? n.citekey : "$(n.citekey)\\n$(_dot_escape(n.title)[1:min(40,end)])"
+        label = if isempty(n.title)
+            n.citekey
+        else
+            "$(n.citekey)\\n$(_dot_escape(n.title)[1:min(40,end)])"
+        end
         attrs = _dot_node_attrs(n.status)
         println(io, "  \"", sk, "\" [label=\"", label, "\", ", attrs, "];")
     end
@@ -161,9 +163,9 @@ classDef failed  fill:#ffe0e0,stroke:#cc0000;
 """
 
 function _mermaid_class(status::AbstractString)
-    status == "ok"      && return "ok"
+    status == "ok" && return "ok"
     status == "pending" && return "pending"
-    status == "failed"  && return "failed"
+    status == "failed" && return "failed"
     return ""
 end
 
