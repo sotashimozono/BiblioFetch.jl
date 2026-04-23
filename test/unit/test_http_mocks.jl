@@ -79,7 +79,8 @@ end
         @test BiblioFetch.crossref_lookup("10.1/garbage"; base_url=cr) == Dict{String,Any}()
 
         # 200 with empty body -> JSON3.read will fail or message key missing; must not crash
-        @test BiblioFetch.crossref_lookup("10.1/nomessage"; base_url=cr) == Dict{String,Any}()
+        @test BiblioFetch.crossref_lookup("10.1/nomessage"; base_url=cr) ==
+            Dict{String,Any}()
     end
 end
 
@@ -107,8 +108,11 @@ function _unpaywall_handler(req::HTTP.Request)
         """
         return HTTP.Response(200, ["Content-Type" => "application/json"], body)
     elseif occursin("/v2/10.1%2Fclosed", p) || occursin("/v2/10.1/closed", p)
-        return HTTP.Response(200, ["Content-Type" => "application/json"],
-                             """{"doi":"10.1/closed","is_oa":false,"best_oa_location":null}""")
+        return HTTP.Response(
+            200,
+            ["Content-Type" => "application/json"],
+            """{"doi":"10.1/closed","is_oa":false,"best_oa_location":null}""",
+        )
     elseif occursin("/v2/10.1%2F404", p) || occursin("/v2/10.1/404", p)
         return HTTP.Response(404, "unknown DOI")
     else
@@ -156,19 +160,30 @@ const _MOCK_ATOM_ONE = """
 function _arxiv_handler(req::HTTP.Request)
     p = req.target
     if occursin("id_list=2301.00001", p)
-        return HTTP.Response(200, ["Content-Type" => "application/atom+xml"], _MOCK_ATOM_ONE)
+        return HTTP.Response(
+            200, ["Content-Type" => "application/atom+xml"], _MOCK_ATOM_ONE
+        )
     elseif occursin("id_list=2301.99999", p)
         # empty-feed response (arXiv returns a valid feed with no <entry> for unknown ids)
-        return HTTP.Response(200, ["Content-Type" => "application/atom+xml"],
-            """<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>""")
+        return HTTP.Response(
+            200,
+            ["Content-Type" => "application/atom+xml"],
+            """<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>""",
+        )
     elseif occursin("search_query=ti", p) && occursin("MockPaperTitle", p)
-        return HTTP.Response(200, ["Content-Type" => "application/atom+xml"],
+        return HTTP.Response(
+            200,
+            ["Content-Type" => "application/atom+xml"],
             """<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">
                 <entry><id>http://arxiv.org/abs/2101.01234v2</id><title>MockPaperTitle</title></entry>
-               </feed>""")
+               </feed>""",
+        )
     elseif occursin("search_query=ti", p) && occursin("NothingMatches", p)
-        return HTTP.Response(200, ["Content-Type" => "application/atom+xml"],
-            """<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>""")
+        return HTTP.Response(
+            200,
+            ["Content-Type" => "application/atom+xml"],
+            """<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>""",
+        )
     elseif occursin("errored=1", p)
         return HTTP.Response(500, "boom")
     else
@@ -210,9 +225,10 @@ end
     # 5xx from a running server
     _with_mock((req)->HTTP.Response(500, "boom")) do base
         @test BiblioFetch.crossref_lookup("10.1/x"; base_url=base * "/works/") ==
-              Dict{String,Any}()
-        pdf, md = BiblioFetch.unpaywall_lookup("10.1/x"; email="t@x",
-                                               base_url=base * "/v2/")
+            Dict{String,Any}()
+        pdf, md = BiblioFetch.unpaywall_lookup(
+            "10.1/x"; email="t@x", base_url=base * "/v2/"
+        )
         @test pdf === nothing && md == Dict{String,Any}()
         @test BiblioFetch.arxiv_metadata("1234.5678"; base_url=base) === nothing
     end
@@ -220,9 +236,8 @@ end
     # Connection refused: point at a port we've already freed
     dead_port = _free_port()
     dead_base = "http://127.0.0.1:$(dead_port)"
-    @test BiblioFetch.crossref_lookup("10.1/x";
-                                      base_url=dead_base * "/works/", timeout=2) ==
-          Dict{String,Any}()
-    @test BiblioFetch.arxiv_metadata("1234.5678"; base_url=dead_base, timeout=2) ===
-          nothing
+    @test BiblioFetch.crossref_lookup(
+        "10.1/x"; base_url=dead_base * "/works/", timeout=2
+    ) == Dict{String,Any}()
+    @test BiblioFetch.arxiv_metadata("1234.5678"; base_url=dead_base, timeout=2) === nothing
 end
