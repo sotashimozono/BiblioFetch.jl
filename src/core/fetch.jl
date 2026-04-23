@@ -145,6 +145,12 @@ function fetch_paper!(
     arxiv = startswith(key, "arxiv:") ? key[7:end] : nothing
 
     meta = doi === nothing ? Dict{String,Any}() : crossref_lookup(doi; proxy=rt.proxy)
+    # DataCite fallback: Crossref doesn't know dataset DOIs (Zenodo, Figshare,
+    # institutional DataCite clients). Each DOI has exactly one registration
+    # agency, so we never double-hit for a single paper.
+    if isempty(meta) && doi !== nothing
+        meta = datacite_lookup(doi; proxy=rt.proxy)
+    end
     if !isempty(meta)
         md["title"] = string(get(meta, "title", [get(md, "title", "")])[1])
         md["journal"] = string(get(get(meta, "container-title", [""]), 1, ""))
