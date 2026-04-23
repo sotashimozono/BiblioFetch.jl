@@ -478,7 +478,9 @@ function _cmd_import(args)
     for s in res.skipped
         @printf("  ✗ %-30s  — %s\n", s.citekey, s.reason)
     end
-    println("\nimport: queued $(length(res.added)), skipped $(length(res.skipped)) → $(store.root)")
+    println(
+        "\nimport: queued $(length(res.added)), skipped $(length(res.skipped)) → $(store.root)",
+    )
     return 0
 end
 

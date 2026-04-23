@@ -84,9 +84,13 @@ function _parse_bib_entry(s::AbstractString)
     re = r"(\w+)\s*=\s*(?:\{((?:[^{}]|\{[^{}]*\})*)\}|\"([^\"]*)\"|(\w+))"s
     for fm in eachmatch(re, body)
         name = lowercase(String(fm.captures[1]))
-        val_raw = fm.captures[2] !== nothing ? String(fm.captures[2]) :
-                  fm.captures[3] !== nothing ? String(fm.captures[3]) :
-                  String(fm.captures[4])
+        val_raw = if fm.captures[2] !== nothing
+            String(fm.captures[2])
+        elseif fm.captures[3] !== nothing
+            String(fm.captures[3])
+        else
+            String(fm.captures[4])
+        end
         fields[name] = strip(val_raw)
     end
     return BibEntry(etype, citekey, fields)

@@ -76,17 +76,20 @@ end
 
 @testset "bibentry_to_ref: doi wins over eprint / url" begin
     e = BibEntry(
-        "article", "X",
-        Dict("doi" => "10.1/doi", "eprint" => "1234.5678",
-             "archiveprefix" => "arXiv",
-             "url" => "https://doi.org/10.1/some-other"),
+        "article",
+        "X",
+        Dict(
+            "doi" => "10.1/doi",
+            "eprint" => "1234.5678",
+            "archiveprefix" => "arXiv",
+            "url" => "https://doi.org/10.1/some-other",
+        ),
     )
     @test bibentry_to_ref(e) == "10.1/doi"
 end
 
 @testset "bibentry_to_ref: eprint alone yields arxiv: prefix" begin
-    e = BibEntry("misc", "X",
-                 Dict("eprint" => "1706.03762", "archiveprefix" => "arXiv"))
+    e = BibEntry("misc", "X", Dict("eprint" => "1706.03762", "archiveprefix" => "arXiv"))
     @test bibentry_to_ref(e) == "arxiv:1706.03762"
 end
 
@@ -96,18 +99,17 @@ end
 end
 
 @testset "bibentry_to_ref: url fallback parses doi.org / arxiv.org" begin
-    e = BibEntry("article", "X",
-                 Dict("url" => "https://doi.org/10.1103/PhysRevB.99.214433"))
+    e = BibEntry(
+        "article", "X", Dict("url" => "https://doi.org/10.1103/PhysRevB.99.214433")
+    )
     @test bibentry_to_ref(e) == "10.1103/PhysRevB.99.214433"
 
-    e2 = BibEntry("misc", "X",
-                  Dict("url" => "https://arxiv.org/abs/2101.01234"))
+    e2 = BibEntry("misc", "X", Dict("url" => "https://arxiv.org/abs/2101.01234"))
     @test bibentry_to_ref(e2) == "arxiv:2101.01234"
 end
 
 @testset "bibentry_to_ref: nothing when no usable identifier" begin
-    e = BibEntry("article", "X",
-                 Dict("title" => "Some title", "author" => "Someone"))
+    e = BibEntry("article", "X", Dict("title" => "Some title", "author" => "Someone"))
     @test bibentry_to_ref(e) === nothing
 end
 
@@ -115,28 +117,31 @@ end
     mktempdir() do dir
         bib = joinpath(dir, "refs.bib")
         open(bib, "w") do io
-            write(io, """
-            @article{Smith2019,
-              author = {John Smith},
-              doi    = {10.1103/PhysRevB.99.214433}
-            }
+            write(
+                io,
+                """
+      @article{Smith2019,
+        author = {John Smith},
+        doi    = {10.1103/PhysRevB.99.214433}
+      }
 
-            @misc{Vaswani2017,
-              author        = {Ashish Vaswani},
-              eprint        = {1706.03762},
-              archivePrefix = {arXiv}
-            }
+      @misc{Vaswani2017,
+        author        = {Ashish Vaswani},
+        eprint        = {1706.03762},
+        archivePrefix = {arXiv}
+      }
 
-            @article{NoIdent,
-              author = {Missing Identifier},
-              title  = {Unreachable paper}
-            }
+      @article{NoIdent,
+        author = {Missing Identifier},
+        title  = {Unreachable paper}
+      }
 
-            @article{UrlOnly,
-              author = {UrlAuthor},
-              url    = {https://arxiv.org/abs/2001.02100}
-            }
-            """)
+      @article{UrlOnly,
+        author = {UrlAuthor},
+        url    = {https://arxiv.org/abs/2001.02100}
+      }
+      """,
+            )
         end
         store = BiblioFetch.open_store(joinpath(dir, "papers"))
         res = import_bib!(store, bib)
@@ -159,27 +164,28 @@ end
 end
 
 @testset "import_bib!: non-existent path throws" begin
-    @test_throws ArgumentError import_bib!(
-        BiblioFetch.Store("/tmp"), "/nowhere/fake.bib",
-    )
+    @test_throws ArgumentError import_bib!(BiblioFetch.Store("/tmp"), "/nowhere/fake.bib")
 end
 
 @testset "import_bib!: malformed entry doesn't abort the whole import" begin
     mktempdir() do dir
         bib = joinpath(dir, "refs.bib")
         open(bib, "w") do io
-            write(io, """
-            @article{Good,
-              doi = {10.1234/good}
-            }
+            write(
+                io,
+                """
+      @article{Good,
+        doi = {10.1234/good}
+      }
 
-            @article{Broken, doi = {10.1/broken   <-- unbalanced brace below>
-              author = {Whoops
+      @article{Broken, doi = {10.1/broken   <-- unbalanced brace below>
+        author = {Whoops
 
-            @misc{StillGood,
-              eprint = {1111.2222}
-            }
-            """)
+      @misc{StillGood,
+        eprint = {1111.2222}
+      }
+      """,
+            )
         end
         store = BiblioFetch.open_store(joinpath(dir, "papers"))
         res = import_bib!(store, bib)
