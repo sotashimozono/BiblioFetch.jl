@@ -121,6 +121,76 @@ end
     @test !occursin("journal ", s)
 end
 
+@testset "_wrap_paragraph: word-wrap + indent" begin
+    # No text → no lines
+    @test BiblioFetch._wrap_paragraph("", 40) == String[]
+
+    # Single word fits on one line
+    @test BiblioFetch._wrap_paragraph("hello", 40) == ["hello"]
+
+    # Short paragraph stays on one line
+    @test BiblioFetch._wrap_paragraph("a b c d e", 40) == ["a b c d e"]
+
+    # Wrap on word boundary, no word breaking
+    lines = BiblioFetch._wrap_paragraph(
+        "We observe a finite gap in the spectrum of the Heisenberg antiferromagnet",
+        30,
+    )
+    @test length(lines) >= 2
+    @test all(length(l) <= 30 for l in lines)
+    @test occursin("We observe", lines[1])
+
+    # Indent prefix on every line
+    lines_i = BiblioFetch._wrap_paragraph("one two three four five six", 10; indent="  >>")
+    @test all(startswith(l, "  >>") for l in lines_i)
+
+    # Internal whitespace runs collapse
+    single = BiblioFetch._wrap_paragraph("a    b    c", 40)
+    @test single == ["a b c"]
+end
+
+@testset "_format_info_entry: abstract + primary_category + s2_paper_id render" begin
+    md = Dict{String,Any}(
+        "key" => "10.1103/physrevresearch.1.033027",
+        "title" => "Excitation of a uniformly moving atom",
+        "authors" => ["Anatoly A. Svidzinsky"],
+        "year" => 2019,
+        "status" => "ok",
+        "abstract" =>
+            "We observe a finite gap in the spectrum of the Heisenberg " *
+            "antiferromagnet with integer spin, confirming the Haldane " *
+            "conjecture. This result has broad implications for quantum " *
+            "magnetism in one-dimensional systems.",
+        "primary_category" => "cond-mat.str-el",
+        "s2_paper_id" => "abc123def456",
+    )
+    s = BiblioFetch._format_info_entry(md)
+
+    # Category + S2 id appear as key-value rows
+    @test occursin(r"category\s+: cond-mat\.str-el", s)
+    @test occursin(r"s2_id\s+: abc123def456", s)
+
+    # Abstract block label + first few words present, word-wrapped
+    @test occursin("abstract:", s)
+    @test occursin("We observe a finite gap", s)
+    @test occursin("Haldane", s)
+    # Each line of the abstract is indented (the `_wrap_paragraph` indent)
+    for line in split(s, '\n')
+        if startswith(line, "    ") && occursin("Haldane", line)
+            @test length(line) <= 80    # indent(4) + width(76)
+        end
+    end
+end
+
+@testset "_format_info_entry: missing abstract does not render the block" begin
+    md = Dict{String,Any}(
+        "key" => "10.1103/x", "status" => "ok",
+        "title" => "No Abstract", "authors" => ["Someone"], "year" => 2020,
+    )
+    s = BiblioFetch._format_info_entry(md)
+    @test !occursin("abstract:", s)
+end
+
 @testset "_format_info_entry: real PDF size reported" begin
     mktempdir() do dir
         p = joinpath(dir, "fake.pdf")
