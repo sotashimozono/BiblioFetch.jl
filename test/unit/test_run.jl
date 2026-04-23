@@ -74,6 +74,69 @@ using Test
     end
 end
 
+@testset "run: bibtex file is written when [folder].bibtex is set" begin
+    mktempdir() do dir
+        target = joinpath(dir, "papers")
+        job_path = joinpath(dir, "job.toml")
+        open(job_path, "w") do io
+            write(
+                io,
+                """
+          [folder]
+          target = "$(target)"
+          bibtex = "refs.bib"
+
+          [fetch]
+          email   = "t@x"
+          sources = ["direct"]
+
+          [doi]
+          list = ["10.1103/PhysRevB.99.214433"]
+      """,
+            )
+        end
+        rt = withenv(
+            "HTTP_PROXY" => nothing,
+            "HTTPS_PROXY" => nothing,
+            "http_proxy" => nothing,
+            "https_proxy" => nothing,
+        ) do
+            detect_environment(probe=false)
+        end
+
+        # Seed the store: metadata + a non-empty fake PDF so `has_pdf` returns true
+        # → run hits the `:cached` fast path and preserves our title/authors/year.
+        store = open_store(target)
+        BiblioFetch.write_metadata!(
+            store,
+            "10.1103/physrevb.99.214433",
+            Dict(
+                "key" => "10.1103/physrevb.99.214433",
+                "authors" => ["John Smith"],
+                "title" => "Seed",
+                "journal" => "PRB",
+                "year" => 2019,
+                "status" => "ok",
+            ),
+        )
+        pdf = BiblioFetch.pdf_path(store, "10.1103/physrevb.99.214433")
+        mkpath(dirname(pdf))
+        open(pdf, "w") do io
+            write(io, "dummy")
+        end
+
+        result = BiblioFetch.run(job_path; verbose=false, runtime=rt)
+        bib_path = joinpath(target, "refs.bib")
+        @test isfile(bib_path)
+        txt = read(bib_path, String)
+        @test occursin("@article{Smith2019,", txt)
+        @test occursin("doi     = {10.1103/physrevb.99.214433}", txt)
+
+        log_txt = read(result.job.log_file, String)
+        @test occursin("bibtex written", log_txt)
+    end
+end
+
 @testset "_attempts_to_dict round-trip via TOML" begin
     a1 = AttemptLog(:unpaywall, "https://example/1.pdf", false, 404, "not found", 1.234)
     a2 = AttemptLog(:arxiv, "https://arxiv.org/x", true, 200, nothing, 0.5)

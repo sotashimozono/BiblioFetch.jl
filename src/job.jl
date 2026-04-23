@@ -263,6 +263,12 @@ function run(job::FetchJob; verbose::Bool=true, runtime::Union{Runtime,Nothing}=
         logio,
         "run end   ok=$(n_ok)/$(length(entries)) elapsed=$(round(elapsed; digits = 2))s",
     )
+
+    if job.bibtex !== nothing
+        n_bib = write_bibtex(store, job.bibtex)
+        _logln(logio, "bibtex written: $(job.bibtex) entries=$(n_bib)")
+    end
+
     close(logio)
 
     return FetchJobResult(job, entries, elapsed)
