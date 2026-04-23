@@ -194,6 +194,126 @@ end
 
 arxiv_pdf_url(id::AbstractString) = "https://arxiv.org/pdf/" * id * ".pdf"
 
+# --- arXiv Atom metadata parsing ---
+
+# Decode the minimal HTML-entity set the arXiv API uses inside text fields.
+# Order matters: &amp; must run last so we don't double-decode entities like &amp;lt;.
+function _decode_html_entities(s::AbstractString)
+    out = String(s)
+    out = replace(out, "&lt;" => "<")
+    out = replace(out, "&gt;" => ">")
+    out = replace(out, "&quot;" => "\"")
+    out = replace(out, "&apos;" => "'")
+    out = replace(out, "&amp;" => "&")
+    return out
+end
+
+# Strip element content: decode entities + collapse internal whitespace.
+function _clean_text(s::AbstractString)
+    t = _decode_html_entities(String(s))
+    return strip(replace(t, r"\s+" => " "))
+end
+
+# Pull the first <tag>...</tag> body (with optional attributes), or `nothing`.
+# The tag name may contain a colon (`arxiv:doi`) — we escape it for the regex.
+function _first_tag(xml::AbstractString, tag::AbstractString)
+    esc = replace(tag, ":" => "\\:")
+    re = Regex("<$(esc)(?:\\s[^>]*)?>([^<]*)</$(esc)>", "s")
+    m = match(re, xml)
+    m === nothing ? nothing : _clean_text(String(m.captures[1]))
+end
+
+# Pull every <author>…<name>X</name>…</author> body. Handles optional
+# <arxiv:affiliation> siblings that appear in some real arXiv responses.
+function _all_author_names(xml::AbstractString)
+    out = String[]
+    for block in eachmatch(r"<author\b[^>]*>(.*?)</author>"s, xml)
+        m = match(r"<name\b[^>]*>\s*(.*?)\s*</name>"s, String(block.captures[1]))
+        m === nothing && continue
+        push!(out, _clean_text(String(m.captures[1])))
+    end
+    return out
+end
+
+"""
+    _parse_arxiv_atom(xml) -> NamedTuple | nothing
+
+Parse an arXiv Atom response (single-entry feed) into
+`(title, authors, year, journal, doi, primary_category)`. Returns `nothing` if
+the feed has no `<entry>`.
+
+The parser is regex-based rather than a full XML parser — arXiv's Atom is
+well-behaved and staying dep-free keeps the package lightweight.
+"""
+function _parse_arxiv_atom(xml::AbstractString)
+    entry = match(r"<entry>(.*?)</entry>"s, String(xml))
+    entry === nothing && return nothing
+    body = String(entry.captures[1])
+
+    title = something(_first_tag(body, "title"), "")
+    isempty(title) && return nothing     # not a usable entry
+
+    authors = _all_author_names(body)
+
+    pub = _first_tag(body, "published")
+    year = if pub === nothing
+        nothing
+    else
+        m = match(r"^(\d{4})", pub)
+        m === nothing ? nothing : parse(Int, m.captures[1])
+    end
+
+    journal = _first_tag(body, "arxiv:journal_ref")
+    doi     = _first_tag(body, "arxiv:doi")
+
+    # Prefer the journal publication year over the arXiv submission year when
+    # the journal_ref supplies one (e.g. "Annals Phys. 321 (2006) 2-111").
+    if journal !== nothing
+        my = match(r"\((\d{4})\)", journal)
+        my === nothing || (year = parse(Int, my.captures[1]))
+    end
+
+    primary_category = let m = match(r"<arxiv:primary_category[^>]*term=\"([^\"]+)\""s, body)
+        m === nothing ? nothing : String(m.captures[1])
+    end
+
+    return (
+        title=title,
+        authors=authors,
+        year=year,
+        journal=journal,
+        doi=doi,
+        primary_category=primary_category,
+    )
+end
+
+"""
+    arxiv_metadata(id; proxy = nothing, timeout = 15) -> NamedTuple | nothing
+
+Hit the arXiv API for a single id (`1706.03762` / `cond-mat/0608208`) and
+return the parsed metadata, or `nothing` if the lookup fails. Strips the
+`arxiv:` prefix if passed.
+"""
+function arxiv_metadata(id::AbstractString; proxy=nothing, timeout=15)
+    raw = startswith(lowercase(String(id)), "arxiv:") ? id[7:end] : id
+    url = "http://export.arxiv.org/api/query?id_list=" * URIs.escapeuri(String(raw))
+    try
+        kw = (;
+            headers=["User-Agent" => USER_AGENT],
+            connect_timeout=timeout,
+            readtimeout=timeout,
+            status_exception=false,
+            retry=false,
+        )
+        resp = proxy === nothing ? HTTP.get(url; kw...) : HTTP.get(url; proxy=proxy, kw...)
+        resp.status == 200 || return nothing
+        return _parse_arxiv_atom(String(resp.body))
+    catch e
+        @debug "arxiv_metadata failed" id exception=e
+        return nothing
+    end
+end
+
 # ---------- direct DOI landing (needs proxy for paywalled) ----------
 
 doi_landing_url(doi::AbstractString) = "https://doi.org/" * doi
