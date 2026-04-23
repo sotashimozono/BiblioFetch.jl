@@ -5,6 +5,7 @@ Usage:
   bibliofetch env                         Show detected runtime (hostname, proxy, mode)
   bibliofetch run <job.toml>              Execute a job TOML (groups, parallel, log)
   bibliofetch bib <dir> [--out <path>]    Export BibTeX for all ok entries in a store root
+  bibliofetch dedup [<dir>] [--apply]     Report (or apply with --apply) PDF-hash duplicates
   bibliofetch add <ref> [<ref> …]         Queue refs into the global store
   bibliofetch add -f <file>               Queue from a file (one ref per line; '#' comments ok)
   bibliofetch sync [--force] [--quiet]    Fetch pending/failed entries; --force re-downloads even ok+pdf entries
@@ -225,6 +226,10 @@ function _format_info_entry(md::AbstractDict; now_dt::Dates.DateTime=Dates.now()
     ref_count = length(get(md, "referenced_dois", []))
     ref_count == 0 || row("cites", string(ref_count, " DOIs"))
 
+    # dedup provenance
+    dup_of = String(get(md, "duplicate_of", ""))
+    isempty(dup_of) || row("duplicate of", dup_of)
+
     # citekey via the same function BibTeX export uses, so the user sees
     # exactly what would end up in refs.bib.
     row("citekey", _bibtex_key(md))
@@ -312,6 +317,41 @@ function _cmd_info(args)
     return 0
 end
 
+function _cmd_dedup(args)
+    apply = "--apply" in args
+    rt = detect_environment(; probe=false)
+    # Optional positional arg: a store directory; otherwise use global store
+    dir = nothing
+    for a in args
+        startswith(a, "--") && continue
+        dir = a
+    end
+    store = open_store(dir === nothing ? rt.store_root : dir)
+    res = resolve_duplicates!(store; apply=apply)
+    groups = res.groups
+    if isempty(groups)
+        println("no duplicate PDFs found in $(store.root)")
+        return 0
+    end
+    println("found $(length(groups)) duplicate group(s) in $(store.root):")
+    for (hash, keys) in groups
+        canonical = first(keys)
+        println("  ", hash[1:12], "…   kept: ", canonical)
+        for dup in keys[2:end]
+            println("                dup:  ", dup)
+        end
+    end
+    freed_mb = res.bytes_freed / 1024^2
+    if apply
+        @printf("\napplied: %.2f MB freed, %d entries linked to canonicals\n",
+                freed_mb, length(res.canonicals))
+    else
+        @printf("\n(dry run) would free %.2f MB across %d duplicates. Re-run with --apply to commit.\n",
+                freed_mb, length(res.canonicals))
+    end
+    return 0
+end
+
 function _cmd_bib(args)
     isempty(args) && (println(stderr, "bib: need a store directory"); return 2)
     dir = args[1]
@@ -363,6 +403,8 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
             _cmd_run(rest)
         elseif cmd == "bib"
             _cmd_bib(rest)
+        elseif cmd == "dedup"
+            _cmd_dedup(rest)
         elseif cmd == "add"
             _cmd_add(rest)
         elseif cmd == "sync"
