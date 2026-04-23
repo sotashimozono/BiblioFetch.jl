@@ -68,6 +68,13 @@ datacite_lookup
 s2_lookup
 ```
 
+## Publisher TDM (authenticated)
+
+```@docs
+aps_tdm_url
+is_aps_doi
+```
+
 ## Network status
 
 ```@docs
