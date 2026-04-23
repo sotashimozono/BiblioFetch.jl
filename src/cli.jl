@@ -180,6 +180,28 @@ function _truncate(s::AbstractString, maxlen::Int)
     length(s) <= maxlen ? String(s) : String(s[1:(maxlen - 1)]) * "…"
 end
 
+# Word-wrap `text` to lines of at most `width` characters, with each line
+# prefixed by `indent`. Returns a `Vector{String}` — one entry per line, no
+# trailing newlines. Whitespace collapses: internal runs of whitespace become
+# a single space (so TOML-preserved newlines inside an abstract don't cause
+# weird double breaks).
+function _wrap_paragraph(text::AbstractString, width::Int; indent::AbstractString="")
+    words = split(text)
+    isempty(words) && return String[]
+    lines = String[]
+    current = String(first(words))
+    for w in words[2:end]
+        if length(current) + 1 + length(w) <= width
+            current *= " " * w
+        else
+            push!(lines, indent * current)
+            current = String(w)
+        end
+    end
+    push!(lines, indent * current)
+    return lines
+end
+
 """
     _format_info_entry(md) -> String
 
@@ -218,6 +240,14 @@ function _format_info_entry(md::AbstractDict; now_dt::Dates.DateTime=Dates.now()
 
     is_oa = get(md, "is_oa", nothing)
     is_oa === nothing || row("is_oa", string(is_oa))
+
+    # arXiv primary category (e.g., "cond-mat.str-el") — recorded by the arXiv
+    # lookup path; handy for filtering by subject without re-reading the paper.
+    row("category", get(md, "primary_category", ""))
+
+    # Semantic Scholar's stable paper id — useful as a cross-tool reference
+    # (S2 search, Connected Papers, etc.).
+    row("s2_id", get(md, "s2_paper_id", ""))
 
     # citation graph provenance (present only when the entry was queued by an
     # expansion hop, not by the user directly)
@@ -265,6 +295,17 @@ function _format_info_entry(md::AbstractDict; now_dt::Dates.DateTime=Dates.now()
     width = isempty(rows) ? 0 : maximum(length(p.first) for p in rows)
     for (label, val) in rows
         @printf(io, "  %-*s : %s\n", width, label, val)
+    end
+
+    # Abstract — rendered as a wrapped paragraph block rather than a single
+    # row because it's typically a few hundred chars. S2 is the only source
+    # that provides these today; Crossref records don't carry them.
+    abstract_str = String(get(md, "abstract", ""))
+    if !isempty(abstract_str)
+        println(io, "\n  abstract:")
+        for line in _wrap_paragraph(abstract_str, 76; indent="    ")
+            println(io, line)
+        end
     end
 
     attempts = get(md, "attempts", nothing)
