@@ -57,9 +57,7 @@ end
 
     # Connection refused: use an already-freed port
     dead = _free_port_s()
-    r = BiblioFetch._do_probe(
-        :x, "http://127.0.0.1:$(dead)/", "Mock"; timeout=2,
-    )
+    r = BiblioFetch._do_probe(:x, "http://127.0.0.1:$(dead)/", "Mock"; timeout=2)
     @test !r.reachable
     @test r.http_status === nothing
     @test r.error !== nothing
@@ -69,29 +67,47 @@ end
 
 function _mkprobe(name, reachable)
     return BiblioFetch.ProbeResult(
-        name, "http://x/", string(name), reachable, reachable ? 200 : nothing, 0.1, nothing,
+        name, "http://x/", string(name), reachable, reachable ? 200 : nothing, 0.1, nothing
     )
 end
 
-_mkrt(; email=nothing, proxy=nothing) = BiblioFetch.Runtime(
-    "test-host", "default", proxy, proxy === nothing ? :none : :profile,
-    missing, "/tmp/store", email, :oa_only, nothing,
-)
+function _mkrt(; email=nothing, proxy=nothing)
+    BiblioFetch.Runtime(
+        "test-host",
+        "default",
+        proxy,
+        proxy === nothing ? :none : :profile,
+        missing,
+        "/tmp/store",
+        email,
+        :oa_only,
+        nothing,
+    )
+end
 
 @testset "_effective_sources: all reachable, email + proxy set → all 3" begin
-    probes = [_mkprobe(:crossref, true), _mkprobe(:datacite, true),
-              _mkprobe(:unpaywall, true), _mkprobe(:arxiv_api, true),
-              _mkprobe(:arxiv_pdf, true), _mkprobe(:doi, true),
-              _mkprobe(:proxy, true)]
+    probes = [
+        _mkprobe(:crossref, true),
+        _mkprobe(:datacite, true),
+        _mkprobe(:unpaywall, true),
+        _mkprobe(:arxiv_api, true),
+        _mkprobe(:arxiv_pdf, true),
+        _mkprobe(:doi, true),
+        _mkprobe(:proxy, true),
+    ]
     rt = _mkrt(email="x@y", proxy="http://proxy.univ:8080")
     eff = BiblioFetch._effective_sources(probes, rt)
     @test Set(eff) == Set([:unpaywall, :arxiv, :direct])
 end
 
 @testset "_effective_sources: no email → unpaywall dropped" begin
-    probes = [_mkprobe(:crossref, true), _mkprobe(:unpaywall, true),
-              _mkprobe(:arxiv_api, true), _mkprobe(:arxiv_pdf, true),
-              _mkprobe(:doi, true)]
+    probes = [
+        _mkprobe(:crossref, true),
+        _mkprobe(:unpaywall, true),
+        _mkprobe(:arxiv_api, true),
+        _mkprobe(:arxiv_pdf, true),
+        _mkprobe(:doi, true),
+    ]
     rt = _mkrt(email=nothing)
     eff = BiblioFetch._effective_sources(probes, rt)
     @test :unpaywall ∉ eff
@@ -100,8 +116,12 @@ end
 end
 
 @testset "_effective_sources: arxiv needs BOTH api and pdf" begin
-    probes = [_mkprobe(:unpaywall, true), _mkprobe(:arxiv_api, true),
-              _mkprobe(:arxiv_pdf, false), _mkprobe(:doi, true)]
+    probes = [
+        _mkprobe(:unpaywall, true),
+        _mkprobe(:arxiv_api, true),
+        _mkprobe(:arxiv_pdf, false),
+        _mkprobe(:doi, true),
+    ]
     rt = _mkrt(email="x@y")
     eff = BiblioFetch._effective_sources(probes, rt)
     @test :arxiv ∉ eff   # arxiv_pdf down
@@ -131,11 +151,13 @@ end
 
 @testset "status: runs probes concurrently and classifies effective sources" begin
     # Handler routes by path prefix so we can simulate a mixed environment.
-    handler = function(req::HTTP.Request)
+    handler = function (req::HTTP.Request)
         p = req.target
-        if startswith(p, "/crossref") || startswith(p, "/datacite") ||
-           startswith(p, "/unpaywall") || startswith(p, "/arxiv_api") ||
-           startswith(p, "/arxiv_pdf")
+        if startswith(p, "/crossref") ||
+            startswith(p, "/datacite") ||
+            startswith(p, "/unpaywall") ||
+            startswith(p, "/arxiv_api") ||
+            startswith(p, "/arxiv_pdf")
             return HTTP.Response(200, "ok")
         elseif startswith(p, "/doi")
             return HTTP.Response(500, "boom")  # pretend doi.org is down
@@ -145,12 +167,12 @@ end
     end
     _with_mock_s(handler) do base
         probes = (
-            (:crossref,  base * "/crossref/x",  "Crossref"),
-            (:datacite,  base * "/datacite/x",  "DataCite"),
+            (:crossref, base * "/crossref/x", "Crossref"),
+            (:datacite, base * "/datacite/x", "DataCite"),
             (:unpaywall, base * "/unpaywall/x", "Unpaywall"),
-            (:arxiv_api, base * "/arxiv_api",   "arXiv API"),
-            (:arxiv_pdf, base * "/arxiv_pdf",   "arXiv PDF"),
-            (:doi,       base * "/doi/x",       "doi.org"),
+            (:arxiv_api, base * "/arxiv_api", "arXiv API"),
+            (:arxiv_pdf, base * "/arxiv_pdf", "arXiv PDF"),
+            (:doi, base * "/doi/x", "doi.org"),
         )
         rt = _mkrt(email="x@y")
         t0 = time()
@@ -170,7 +192,9 @@ end
 
 @testset "is_reachable: looks up by name; missing name → false" begin
     ns = BiblioFetch.NetworkStatus(
-        "host", :oa_only, nothing,
+        "host",
+        :oa_only,
+        nothing,
         [_mkprobe(:crossref, true), _mkprobe(:arxiv_pdf, false)],
         [:unpaywall],
     )

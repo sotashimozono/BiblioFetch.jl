@@ -40,8 +40,7 @@ end
 # caught and presented as "unreachable" with zero elapsed time, which is the
 # worst possible diagnostic. So force the conversion here.
 function _do_probe(
-    name::Symbol, url::AbstractString, label::AbstractString;
-    proxy=nothing, timeout::Real=5,
+    name::Symbol, url::AbstractString, label::AbstractString; proxy=nothing, timeout::Real=5
 )
     t0 = time()
     to = Int(round(timeout))
@@ -67,12 +66,16 @@ end
 # (e.g. "DOI not found" on a fake probe DOI) still count as reachable, which
 # is why this doesn't need to know any real DOIs.
 const _STATUS_PROBES = (
-    (:crossref,  "https://api.crossref.org/works/10.1234/probe",                        "Crossref metadata"),
-    (:datacite,  "https://api.datacite.org/dois/10.1234/probe",                         "DataCite metadata"),
-    (:unpaywall, "https://api.unpaywall.org/v2/10.1234/probe?email=probe@bibliofetch",  "Unpaywall OA lookup"),
-    (:arxiv_api, "http://export.arxiv.org/api/query?max_results=0",                     "arXiv API"),
-    (:arxiv_pdf, "https://arxiv.org/",                                                  "arXiv PDF downloads"),
-    (:doi,       "https://doi.org/",                                                    "publisher direct (doi.org)"),
+    (:crossref, "https://api.crossref.org/works/10.1234/probe", "Crossref metadata"),
+    (:datacite, "https://api.datacite.org/dois/10.1234/probe", "DataCite metadata"),
+    (
+        :unpaywall,
+        "https://api.unpaywall.org/v2/10.1234/probe?email=probe@bibliofetch",
+        "Unpaywall OA lookup",
+    ),
+    (:arxiv_api, "http://export.arxiv.org/api/query?max_results=0", "arXiv API"),
+    (:arxiv_pdf, "https://arxiv.org/", "arXiv PDF downloads"),
+    (:doi, "https://doi.org/", "publisher direct (doi.org)"),
 )
 
 function _effective_sources(probes::AbstractVector{ProbeResult}, rt::Runtime)
@@ -104,13 +107,10 @@ from here?" before queueing work. The `probes` kwarg is overridable so
 integration tests can point it at a local mock server.
 """
 function status(;
-    rt::Runtime=detect_environment(),
-    timeout::Real=5.0,
-    probes=_STATUS_PROBES,
+    rt::Runtime=detect_environment(), timeout::Real=5.0, probes=_STATUS_PROBES
 )
     tasks = [
-        @async _do_probe(n, u, l; proxy=rt.proxy, timeout=timeout) for
-        (n, u, l) in probes
+        @async _do_probe(n, u, l; proxy=rt.proxy, timeout=timeout) for (n, u, l) in probes
     ]
     results = ProbeResult[fetch(t) for t in tasks]
     if rt.proxy !== nothing
@@ -136,15 +136,19 @@ end
 function Base.show(io::IO, ::MIME"text/plain", ns::NetworkStatus)
     println(io, "BiblioFetch network status")
     println(io, "  hostname : ", ns.hostname, "    mode: ", ns.mode)
-    ns.proxy === nothing ||
-        println(io, "  proxy    : ", ns.proxy)
+    ns.proxy === nothing || println(io, "  proxy    : ", ns.proxy)
     println(io)
     for p in ns.probes
         mark = p.reachable ? "✓" : "✗"
         tail = p.http_status === nothing ? "" : "  ($(p.http_status))"
         @printf(
-            io, "  %s %-10s %-32s %5.2fs%s\n",
-            mark, string(p.name), p.label, p.duration_s, tail,
+            io,
+            "  %s %-10s %-32s %5.2fs%s\n",
+            mark,
+            string(p.name),
+            p.label,
+            p.duration_s,
+            tail,
         )
     end
     println(io)
