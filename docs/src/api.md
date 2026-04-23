@@ -65,6 +65,7 @@ resolve_duplicates!
 
 ```@docs
 datacite_lookup
+s2_lookup
 ```
 
 ## Network status

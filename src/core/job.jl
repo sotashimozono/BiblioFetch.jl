@@ -142,8 +142,8 @@ function load_job(path::AbstractString; runtime::Union{Runtime,Nothing}=nothing)
     sources = Symbol[]
     for s in sources_raw
         sym = Symbol(String(s))
-        sym in DEFAULT_SOURCES ||
-            throw(ArgumentError("unknown source '$(s)'; allowed: $(DEFAULT_SOURCES)"))
+        sym in KNOWN_SOURCES ||
+            throw(ArgumentError("unknown source '$(s)'; allowed: $(KNOWN_SOURCES)"))
         push!(sources, sym)
     end
     isempty(sources) && throw(ArgumentError("[fetch].sources may not be empty"))

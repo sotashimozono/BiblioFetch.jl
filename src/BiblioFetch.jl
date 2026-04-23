@@ -18,6 +18,7 @@ include("sources/crossref.jl")
 include("sources/datacite.jl")    # DataCite = Crossref for datasets (Zenodo etc)
 include("sources/unpaywall.jl")
 include("sources/arxiv.jl")
+include("sources/semantic_scholar.jl")   # abstracts + another OA PDF set
 include("core/store.jl")
 include("core/fetch.jl")
 include("core/dedup.jl")          # depends on store + sha256 from fetch
@@ -35,6 +36,7 @@ export FetchEntry, FetchJob, FetchJobResult, AttemptLog, load_job
 export bibtex_entry, write_bibtex
 export find_duplicates, resolve_duplicates!
 export datacite_lookup
+export s2_lookup
 export status, NetworkStatus, ProbeResult, is_reachable
 export cli_main
 # NOTE: `run` is intentionally not exported — call as `BiblioFetch.run(path)` to
