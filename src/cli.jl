@@ -325,7 +325,7 @@ function _cmd_watch(args)
     rt = detect_environment()
     !quiet && (show(stdout, MIME("text/plain"), rt); println(); println())
     try
-        watch(path; verbose=!quiet, runtime=rt)
+        watch(path; verbose=(!quiet), runtime=rt)
     catch e
         println(stderr, "watch: ", sprint(showerror, e))
         return 1
@@ -359,11 +359,17 @@ function _cmd_dedup(args)
     end
     freed_mb = res.bytes_freed / 1024^2
     if apply
-        @printf("\napplied: %.2f MB freed, %d entries linked to canonicals\n",
-                freed_mb, length(res.canonicals))
+        @printf(
+            "\napplied: %.2f MB freed, %d entries linked to canonicals\n",
+            freed_mb,
+            length(res.canonicals)
+        )
     else
-        @printf("\n(dry run) would free %.2f MB across %d duplicates. Re-run with --apply to commit.\n",
-                freed_mb, length(res.canonicals))
+        @printf(
+            "\n(dry run) would free %.2f MB across %d duplicates. Re-run with --apply to commit.\n",
+            freed_mb,
+            length(res.canonicals)
+        )
     end
     return 0
 end

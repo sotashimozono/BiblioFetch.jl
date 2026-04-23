@@ -3,16 +3,25 @@ using SHA
 using Test
 
 # Helper: seed an entry whose metadata has a sha256 and a real file on disk.
-function _seed_with_hash!(store::BiblioFetch.Store, key::String, bytes::Vector{UInt8};
-                          group::String="")
+function _seed_with_hash!(
+    store::BiblioFetch.Store, key::String, bytes::Vector{UInt8}; group::String=""
+)
     BiblioFetch.write_metadata!(
-        store, key,
-        Dict("key" => key, "status" => "ok", "group" => group,
-             "sha256" => bytes2hex(sha256(bytes))),
+        store,
+        key,
+        Dict(
+            "key" => key,
+            "status" => "ok",
+            "group" => group,
+            "sha256" => bytes2hex(sha256(bytes)),
+        ),
     )
     p = BiblioFetch.pdf_path(store, key; group=group)
     mkpath(dirname(p))
-    open(p, "w") do io; write(io, bytes); end
+    open(p, "w") do io
+        ;
+        write(io, bytes);
+    end
     # Persist the path back into the metadata so find_duplicates / resolve can
     # locate the file without recomputing.
     md = BiblioFetch.read_metadata(store, key)
@@ -25,7 +34,10 @@ end
     mktempdir() do dir
         p = joinpath(dir, "x.pdf")
         data = rand(UInt8, 4096)
-        open(p, "w") do io; write(io, data); end
+        open(p, "w") do io
+            ;
+            write(io, data);
+        end
         @test BiblioFetch._sha256_file(p) == bytes2hex(sha256(data))
     end
 end
@@ -55,8 +67,7 @@ end
 
         # Entry with no sha256 field is skipped (can happen for :failed entries)
         BiblioFetch.write_metadata!(
-            store, "10.1/nohash",
-            Dict("key" => "10.1/nohash", "status" => "failed"),
+            store, "10.1/nohash", Dict("key" => "10.1/nohash", "status" => "failed")
         )
         @test BiblioFetch.find_duplicates(store) == Pair{String,Vector{String}}[]
     end
@@ -120,13 +131,15 @@ end
         key = "10.1234/legacy"
         # Pre-dedup entry: no sha256 recorded, but a valid PDF exists
         BiblioFetch.write_metadata!(
-            store, key,
-            Dict("key" => key, "status" => "ok", "group" => ""),
+            store, key, Dict("key" => key, "status" => "ok", "group" => "")
         )
         data = rand(UInt8, 2048)
         p = BiblioFetch.pdf_path(store, key)
         mkpath(dirname(p))
-        open(p, "w") do io; write(io, data); end
+        open(p, "w") do io
+            ;
+            write(io, data);
+        end
 
         rt = BiblioFetch.detect_environment(; probe=false)
         res = BiblioFetch.fetch_paper!(store, key; rt=rt, verbose=false)
