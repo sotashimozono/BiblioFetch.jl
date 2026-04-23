@@ -28,6 +28,14 @@ end
 
 const DEFAULT_SOURCES = (:unpaywall, :arxiv, :direct)
 
+# Compute a hex-encoded SHA-256 of a file's byte stream. Used to dedup PDFs
+# that arrive via multiple DOI aliases (arxiv preprint DOI vs journal DOI).
+function _sha256_file(path::AbstractString)
+    open(path, "r") do io
+        return bytes2hex(SHA.sha256(io))
+    end
+end
+
 # ---- PDF download helpers ----
 
 function _looks_like_pdf(path::AbstractString)
@@ -126,6 +134,9 @@ function fetch_paper!(
     if !force && has_pdf(store, key; group=group)
         md["status"] = "ok"
         md["pdf_path"] = dest
+        # Backfill sha256 for entries stored before dedup support existed, so
+        # `bibliofetch dedup` can find duplicates without a separate rehash step.
+        isempty(String(get(md, "sha256", ""))) && (md["sha256"] = _sha256_file(dest))
         write_metadata!(store, key, md)
         return FetchResult(key, true, :cached, dest, nothing, attempts)
     end
@@ -241,6 +252,7 @@ function fetch_paper!(
         md["fetched_at"] = string(Dates.now())
         md["error"] = ""
         md["attempts"] = _attempts_to_dict.(attempts)
+        md["sha256"] = _sha256_file(dest)
         write_metadata!(store, key, md)
         return FetchResult(key, true, used_source, dest, nothing, attempts)
     end

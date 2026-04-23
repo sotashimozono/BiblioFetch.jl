@@ -18,6 +18,7 @@ include("sources/unpaywall.jl")
 include("sources/arxiv.jl")
 include("core/store.jl")
 include("core/fetch.jl")
+include("core/dedup.jl")          # depends on store + sha256 from fetch
 include("io/bibtex.jl")
 include("core/job.jl")            # depends on fetch + store + bibtex
 include("cli.jl")
@@ -28,6 +29,7 @@ export normalize_key, is_doi, is_arxiv
 export fetch_paper!, sync!
 export FetchEntry, FetchJob, FetchJobResult, AttemptLog, load_job
 export bibtex_entry, write_bibtex
+export find_duplicates, resolve_duplicates!
 export cli_main
 # NOTE: `run` is intentionally not exported — call as `BiblioFetch.run(path)` to
 # avoid shadowing `Base.run`.
