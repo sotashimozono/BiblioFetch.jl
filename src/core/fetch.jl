@@ -41,7 +41,10 @@ end
 # `:s2` is opt-in because its rate limits are aggressive without an API key;
 # adding it to a job is a two-keystroke job-file edit.
 const DEFAULT_SOURCES = (:unpaywall, :arxiv, :direct)
-const KNOWN_SOURCES = (:unpaywall, :arxiv, :direct, :s2)
+# `:aps` = APS Harvest TDM API (needs Bearer token in APS_API_KEY).
+# Like `:s2` it's opt-in; users who have institutional APS access turn it on
+# in their job's `[fetch].sources`.
+const KNOWN_SOURCES = (:unpaywall, :arxiv, :direct, :s2, :aps)
 
 # Compute a hex-encoded SHA-256 of a file's byte stream. Used to dedup PDFs
 # that arrive via multiple DOI aliases (arxiv preprint DOI vs journal DOI).
@@ -61,6 +64,17 @@ function _looks_like_pdf(path::AbstractString)
     end
 end
 
+# Per-source authentication headers (empty for sources that need none).
+# Separated from candidate construction so the fetch loop can always treat
+# candidates as (source, url) pairs.
+function _source_extra_headers(source::Symbol)
+    if source === :aps
+        h = aps_tdm_auth_header()
+        return h === nothing ? Pair{String,String}[] : Pair{String,String}[h]
+    end
+    return Pair{String,String}[]
+end
+
 # HTTP.jl-based downloader. Returns a NamedTuple with enough info for AttemptLog.
 # Shares the retry helper with the metadata lookups so a 429 / 503 from a
 # publisher (or arXiv under load) is backed off instead of immediately failing.
@@ -72,15 +86,21 @@ function _http_download_pdf(
     max_retries::Int=DEFAULT_MAX_RETRIES,
     base_delay::Real=DEFAULT_BASE_DELAY,
     sleep_fn=Base.sleep,
+    extra_headers::AbstractVector{<:Pair}=Pair{String,String}[],
 )
     mkpath(dirname(dest))
     tmp = dest * ".part"
+
+    headers = Pair{String,String}[
+        "User-Agent" => USER_AGENT, "Accept" => "application/pdf,*/*"
+    ]
+    append!(headers, extra_headers)
 
     resp, err = _http_get_with_retry(
         url;
         proxy=proxy,
         request_kwargs=(;
-            headers=["User-Agent" => USER_AGENT, "Accept" => "application/pdf,*/*"],
+            headers=headers,
             connect_timeout=timeout,
             readtimeout=timeout * 2,
             redirect=true,
@@ -263,11 +283,18 @@ function fetch_paper!(
         push!(candidates, (:direct, doi_landing_url(doi)))
     end
 
+    # 4) APS Harvest TDM — institutional/authenticated access to APS PDFs.
+    # Only sensible for 10.1103/* DOIs and only when APS_API_KEY is configured.
+    if want(:aps) && doi !== nothing && is_aps_doi(doi) && aps_tdm_auth_header() !== nothing
+        push!(candidates, (:aps, aps_tdm_url(doi)))
+    end
+
     used_source = :none
     for (src, url) in candidates
         verbose && @info "   try $src" url
         t0 = time()
-        r = _http_download_pdf(url, dest; proxy=rt.proxy)
+        extra = _source_extra_headers(src)
+        r = _http_download_pdf(url, dest; proxy=rt.proxy, extra_headers=extra)
         dt = time() - t0
         push!(attempts, AttemptLog(src, url, r.ok, r.http_status, r.error, dt))
         if r.ok

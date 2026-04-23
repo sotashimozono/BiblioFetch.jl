@@ -8,6 +8,7 @@ const UNPAYWALL_URL = "https://api.unpaywall.org/v2/"
 const ARXIV_API_URL = "http://export.arxiv.org/api/query"
 const DATACITE_URL = "https://api.datacite.org/dois/"
 const S2_URL = "https://api.semanticscholar.org/graph/v1/paper/"
+const APS_TDM_URL = "https://harvest.aps.org/v2/journals/articles/"
 
 # Retry defaults. Overridable per-call on every lookup function.
 const DEFAULT_RETRY_STATUSES = (429, 502, 503, 504)
