@@ -264,7 +264,7 @@ function _parse_arxiv_atom(xml::AbstractString)
     end
 
     journal = _first_tag(body, "arxiv:journal_ref")
-    doi     = _first_tag(body, "arxiv:doi")
+    doi = _first_tag(body, "arxiv:doi")
 
     # Prefer the journal publication year over the arXiv submission year when
     # the journal_ref supplies one (e.g. "Annals Phys. 321 (2006) 2-111").
@@ -273,9 +273,10 @@ function _parse_arxiv_atom(xml::AbstractString)
         my === nothing || (year = parse(Int, my.captures[1]))
     end
 
-    primary_category = let m = match(r"<arxiv:primary_category[^>]*term=\"([^\"]+)\""s, body)
-        m === nothing ? nothing : String(m.captures[1])
-    end
+    primary_category =
+        let m = match(r"<arxiv:primary_category[^>]*term=\"([^\"]+)\""s, body)
+            m === nothing ? nothing : String(m.captures[1])
+        end
 
     return (
         title=title,
