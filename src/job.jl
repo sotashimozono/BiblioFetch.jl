@@ -90,12 +90,12 @@ function load_job(path::AbstractString; runtime::Union{Runtime,Nothing}=nothing)
             nothing
         else
             (
-            if isabspath(expanduser(String(b)))
-                expanduser(String(b))
-            else
-                joinpath(target, expanduser(String(b)))
-            end
-        )
+                if isabspath(expanduser(String(b)))
+                    expanduser(String(b))
+                else
+                    joinpath(target, expanduser(String(b)))
+                end
+            )
         end
     end
 
@@ -263,6 +263,12 @@ function run(job::FetchJob; verbose::Bool=true, runtime::Union{Runtime,Nothing}=
         logio,
         "run end   ok=$(n_ok)/$(length(entries)) elapsed=$(round(elapsed; digits = 2))s",
     )
+
+    if job.bibtex !== nothing
+        n_bib = write_bibtex(store, job.bibtex)
+        _logln(logio, "bibtex written: $(job.bibtex) entries=$(n_bib)")
+    end
+
     close(logio)
 
     return FetchJobResult(job, entries, elapsed)
@@ -341,12 +347,12 @@ function _log_entry(logio, e::FetchEntry, dt)
             "no-candidate"
         else
             join(
-            (
-                "$(a.source)=$(a.ok ? "ok" : (a.error === nothing ? "?" : _short_err(a.error)))"
-                for a in e.attempts
-            ),
-            ", ",
-        )
+                (
+                    "$(a.source)=$(a.ok ? "ok" : (a.error === nothing ? "?" : _short_err(a.error)))"
+                    for a in e.attempts
+                ),
+                ", ",
+            )
         end
         _logln(logio, "fail  $(e.key)  group=$(isempty(e.group) ? "-" : e.group)  $(trail)")
     end
@@ -392,12 +398,12 @@ function Base.show(io::IO, ::MIME"text/plain", r::FetchJobResult)
                     "no candidate"
                 else
                     join(
-                    (
-                        "$(a.source):$(a.error === nothing ? "?" : _short_err(a.error))"
-                        for a in e.attempts
-                    ),
-                    " / ",
-                )
+                        (
+                            "$(a.source):$(a.error === nothing ? "?" : _short_err(a.error))"
+                            for a in e.attempts
+                        ),
+                        " / ",
+                    )
                 end
             end
             print(io, "      ", mark, " ", rpad(e.key, 42), " ", src, " ", detail, "\n")

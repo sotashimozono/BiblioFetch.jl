@@ -4,6 +4,7 @@ BiblioFetch — bulk literature fetcher (DOI / arXiv → local PDF store)
 Usage:
   bibliofetch env                         Show detected runtime (hostname, proxy, mode)
   bibliofetch run <job.toml>              Execute a job TOML (groups, parallel, log)
+  bibliofetch bib <dir> [--out <path>]    Export BibTeX for all ok entries in a store root
   bibliofetch add <ref> [<ref> …]         Queue refs into the global store
   bibliofetch add -f <file>               Queue from a file (one ref per line; '#' comments ok)
   bibliofetch sync [--force] [--quiet]    Fetch all pending/failed entries in the global store
@@ -151,9 +152,11 @@ function _cmd_info(args)
     store = open_store(rt.store_root)
     for r in args
         key = try
-            ; normalize_key(r);
+            ;
+            normalize_key(r);
         catch
-            ; r;
+            ;
+            r;
         end
         md = read_metadata(store, key)
         if isempty(md)
@@ -164,6 +167,26 @@ function _cmd_info(args)
         TOML.print(stdout, md; sorted=true)
         println()
     end
+    return 0
+end
+
+function _cmd_bib(args)
+    isempty(args) && (println(stderr, "bib: need a store directory"); return 2)
+    dir = args[1]
+    out = joinpath(dir, "refs.bib")
+    i = 2
+    while i <= length(args)
+        if args[i] in ("--out", "-o")
+            i += 1
+            i <= length(args) || (println(stderr, "bib: --out needs a path"); return 2)
+            out = args[i]
+        end
+        i += 1
+    end
+    isdir(dir) || (println(stderr, "bib: not a directory: $(dir)"); return 2)
+    store = open_store(dir)
+    n = write_bibtex(store, out)
+    println("wrote $n entries → $(out)")
     return 0
 end
 
@@ -196,6 +219,8 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
             _cmd_env(rest)
         elseif cmd == "run"
             _cmd_run(rest)
+        elseif cmd == "bib"
+            _cmd_bib(rest)
         elseif cmd == "add"
             _cmd_add(rest)
         elseif cmd == "sync"
