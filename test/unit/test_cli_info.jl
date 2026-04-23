@@ -133,8 +133,7 @@ end
 
     # Wrap on word boundary, no word breaking
     lines = BiblioFetch._wrap_paragraph(
-        "We observe a finite gap in the spectrum of the Heisenberg antiferromagnet",
-        30,
+        "We observe a finite gap in the spectrum of the Heisenberg antiferromagnet", 30
     )
     @test length(lines) >= 2
     @test all(length(l) <= 30 for l in lines)
@@ -184,8 +183,11 @@ end
 
 @testset "_format_info_entry: missing abstract does not render the block" begin
     md = Dict{String,Any}(
-        "key" => "10.1103/x", "status" => "ok",
-        "title" => "No Abstract", "authors" => ["Someone"], "year" => 2020,
+        "key" => "10.1103/x",
+        "status" => "ok",
+        "title" => "No Abstract",
+        "authors" => ["Someone"],
+        "year" => 2020,
     )
     s = BiblioFetch._format_info_entry(md)
     @test !occursin("abstract:", s)
