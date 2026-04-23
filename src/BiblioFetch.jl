@@ -24,6 +24,7 @@ include("sources/elsevier_tdm.jl")       # Elsevier ScienceDirect TDM (key-gated
 include("core/store.jl")
 include("core/fetch.jl")
 include("core/dedup.jl")          # depends on store + sha256 from fetch
+include("core/doctor.jl")         # depends on store + sha256_file from fetch
 include("core/search.jl")         # depends on store + refs (_normalize_group)
 include("core/stats.jl")          # depends on store + METADATA_DIRNAME
 include("core/status.jl")         # depends on env (Runtime) + sources (USER_AGENT)
@@ -41,6 +42,7 @@ export FetchEntry, FetchJob, FetchJobResult, AttemptLog, load_job
 export bibtex_entry, write_bibtex
 export BibEntry, parse_bibtex, bibentry_to_ref, import_bib!
 export find_duplicates, resolve_duplicates!
+export doctor, fix!, StoreIssue
 export search_entries, SearchMatch
 export stats, StoreStats
 export datacite_lookup
