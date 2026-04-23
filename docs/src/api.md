@@ -52,6 +52,10 @@ FetchJobResult
 ```@docs
 bibtex_entry
 write_bibtex
+parse_bibtex
+bibentry_to_ref
+import_bib!
+BibEntry
 ```
 
 ## Deduplication
