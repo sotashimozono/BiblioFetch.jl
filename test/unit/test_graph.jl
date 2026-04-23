@@ -11,11 +11,8 @@ using Test
             Dict("DOI" => ""),                                              # empty skipped
         ],
     )
-    @test BiblioFetch.crossref_references(meta) == [
-        "10.1103/physrevb.99.214433",
-        "10.1038/nphys1234",
-        "10.1016/j.aop.2005.10.005",
-    ]
+    @test BiblioFetch.crossref_references(meta) ==
+        ["10.1103/physrevb.99.214433", "10.1038/nphys1234", "10.1016/j.aop.2005.10.005"]
 end
 
 @testset "crossref_references: no reference field returns empty" begin
@@ -28,12 +25,15 @@ end
         p = joinpath(dir, "job.toml")
         # defaults: follow_references=false, max_depth=1, max_refs_per_paper=50
         open(p, "w") do io
-            write(io, """
-                [folder]
-                target = "$(dir)/papers"
-                [doi]
-                list = ["arxiv:1706.03762"]
-            """)
+            write(
+                io,
+                """
+          [folder]
+          target = "$(dir)/papers"
+          [doi]
+          list = ["arxiv:1706.03762"]
+      """,
+            )
         end
         job = BiblioFetch.load_job(p)
         @test job.follow_references == false
@@ -42,16 +42,19 @@ end
 
         # overrides
         open(p, "w") do io
-            write(io, """
-                [folder]
-                target = "$(dir)/papers"
-                [graph]
-                follow_references = true
-                max_depth = 3
-                max_refs_per_paper = 10
-                [doi]
-                list = ["arxiv:1706.03762"]
-            """)
+            write(
+                io,
+                """
+          [folder]
+          target = "$(dir)/papers"
+          [graph]
+          follow_references = true
+          max_depth = 3
+          max_refs_per_paper = 10
+          [doi]
+          list = ["arxiv:1706.03762"]
+      """,
+            )
         end
         job2 = BiblioFetch.load_job(p)
         @test job2.follow_references == true
@@ -64,26 +67,32 @@ end
     mktempdir() do dir
         p = joinpath(dir, "job.toml")
         open(p, "w") do io
-            write(io, """
-                [folder]
-                target = "$(dir)/papers"
-                [graph]
-                max_depth = -1
-                [doi]
-                list = ["arxiv:1706.03762"]
-            """)
+            write(
+                io,
+                """
+          [folder]
+          target = "$(dir)/papers"
+          [graph]
+          max_depth = -1
+          [doi]
+          list = ["arxiv:1706.03762"]
+      """,
+            )
         end
         @test_throws ArgumentError BiblioFetch.load_job(p)
 
         open(p, "w") do io
-            write(io, """
-                [folder]
-                target = "$(dir)/papers"
-                [graph]
-                max_refs_per_paper = 0
-                [doi]
-                list = ["arxiv:1706.03762"]
-            """)
+            write(
+                io,
+                """
+          [folder]
+          target = "$(dir)/papers"
+          [graph]
+          max_refs_per_paper = 0
+          [doi]
+          list = ["arxiv:1706.03762"]
+      """,
+            )
         end
         @test_throws ArgumentError BiblioFetch.load_job(p)
     end
@@ -100,41 +109,47 @@ end
         store = BiblioFetch.open_store(target)
         parent_key = "10.1234/parent"
         BiblioFetch.write_metadata!(
-            store, parent_key,
+            store,
+            parent_key,
             Dict(
                 "key" => parent_key,
                 "status" => "ok",
                 "group" => "",
-                "referenced_dois" => [
-                    "10.9999/child-a",
-                    "10.9999/child-b",
-                ],
+                "referenced_dois" => ["10.9999/child-a", "10.9999/child-b"],
             ),
         )
         # Fake PDF so sync's cache check lets the parent through as :cached
         pdf = BiblioFetch.pdf_path(store, parent_key)
         mkpath(dirname(pdf))
-        open(pdf, "w") do io; write(io, "%PDF-fake"); end
+        open(pdf, "w") do io
+            ;
+            write(io, "%PDF-fake");
+        end
 
         # Write a job that references the seeded parent with graph enabled
         job_path = joinpath(dir, "job.toml")
         open(job_path, "w") do io
-            write(io, """
-                [folder]
-                target = "$(target)"
-                [fetch]
-                sources = ["direct"]
-                [graph]
-                follow_references = true
-                max_depth = 1
-                [doi]
-                list = ["$(parent_key)"]
-            """)
+            write(
+                io,
+                """
+          [folder]
+          target = "$(target)"
+          [fetch]
+          sources = ["direct"]
+          [graph]
+          follow_references = true
+          max_depth = 1
+          [doi]
+          list = ["$(parent_key)"]
+      """,
+            )
         end
 
         rt = withenv(
-            "HTTP_PROXY" => nothing, "HTTPS_PROXY" => nothing,
-            "http_proxy" => nothing, "https_proxy" => nothing,
+            "HTTP_PROXY" => nothing,
+            "HTTPS_PROXY" => nothing,
+            "http_proxy" => nothing,
+            "https_proxy" => nothing,
             "BIBLIOFETCH_CONFIG" => nothing,
         ) do
             BiblioFetch.detect_environment(; probe=false)
@@ -167,27 +182,38 @@ end
         parent_key = "10.1234/parent"
         big_refs = ["10.9999/child-$(i)" for i in 1:10]
         BiblioFetch.write_metadata!(
-            store, parent_key,
-            Dict("key" => parent_key, "status" => "ok", "group" => "",
-                 "referenced_dois" => big_refs),
+            store,
+            parent_key,
+            Dict(
+                "key" => parent_key,
+                "status" => "ok",
+                "group" => "",
+                "referenced_dois" => big_refs,
+            ),
         )
         pdf = BiblioFetch.pdf_path(store, parent_key)
         mkpath(dirname(pdf))
-        open(pdf, "w") do io; write(io, "%PDF-fake"); end
+        open(pdf, "w") do io
+            ;
+            write(io, "%PDF-fake");
+        end
 
         job_path = joinpath(dir, "job.toml")
         open(job_path, "w") do io
-            write(io, """
-                [folder]
-                target = "$(target)"
-                [fetch]
-                sources = ["direct"]
-                [graph]
-                follow_references = true
-                max_refs_per_paper = 3
-                [doi]
-                list = ["$(parent_key)"]
-            """)
+            write(
+                io,
+                """
+          [folder]
+          target = "$(target)"
+          [fetch]
+          sources = ["direct"]
+          [graph]
+          follow_references = true
+          max_refs_per_paper = 3
+          [doi]
+          list = ["$(parent_key)"]
+      """,
+            )
         end
 
         rt = BiblioFetch.detect_environment(; probe=false)
@@ -208,34 +234,49 @@ end
         parent_key = "10.1234/parent"
         already_listed = "10.1234/also-listed"
         BiblioFetch.write_metadata!(
-            store, parent_key,
-            Dict("key" => parent_key, "status" => "ok", "group" => "",
-                 "referenced_dois" => [already_listed, "10.9999/new-child"]),
+            store,
+            parent_key,
+            Dict(
+                "key" => parent_key,
+                "status" => "ok",
+                "group" => "",
+                "referenced_dois" => [already_listed, "10.9999/new-child"],
+            ),
         )
         pdf = BiblioFetch.pdf_path(store, parent_key)
         mkpath(dirname(pdf))
-        open(pdf, "w") do io; write(io, "%PDF-fake"); end
+        open(pdf, "w") do io
+            ;
+            write(io, "%PDF-fake");
+        end
 
         # Seed the user-listed one too (so it's :ok + cached)
         BiblioFetch.write_metadata!(
-            store, already_listed,
+            store,
+            already_listed,
             Dict("key" => already_listed, "status" => "ok", "group" => ""),
         )
         pdf2 = BiblioFetch.pdf_path(store, already_listed)
-        open(pdf2, "w") do io; write(io, "%PDF-fake2"); end
+        open(pdf2, "w") do io
+            ;
+            write(io, "%PDF-fake2");
+        end
 
         job_path = joinpath(dir, "job.toml")
         open(job_path, "w") do io
-            write(io, """
-                [folder]
-                target = "$(target)"
-                [fetch]
-                sources = ["direct"]
-                [graph]
-                follow_references = true
-                [doi]
-                list = ["$(parent_key)", "$(already_listed)"]
-            """)
+            write(
+                io,
+                """
+          [folder]
+          target = "$(target)"
+          [fetch]
+          sources = ["direct"]
+          [graph]
+          follow_references = true
+          [doi]
+          list = ["$(parent_key)", "$(already_listed)"]
+      """,
+            )
         end
         rt = BiblioFetch.detect_environment(; probe=false)
         result = BiblioFetch.run(job_path; verbose=false, runtime=rt)
@@ -243,6 +284,6 @@ end
         # parent + already_listed + one NEW child → 3, not 4
         @test length(result.entries) == 3
         @test Set(e.key for e in result.entries) ==
-              Set([parent_key, already_listed, "10.9999/new-child"])
+            Set([parent_key, already_listed, "10.9999/new-child"])
     end
 end

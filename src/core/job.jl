@@ -18,12 +18,19 @@ mutable struct FetchEntry
     error::Union{String,Nothing}
 end
 
-function FetchEntry(
-    key, group, raw; depth::Int=0, referenced_by::AbstractString=""
-)
+function FetchEntry(key, group, raw; depth::Int=0, referenced_by::AbstractString="")
     return FetchEntry(
-        key, group, raw, depth, String(referenced_by),
-        :pending, :none, nothing, AttemptLog[], nothing, nothing,
+        key,
+        group,
+        raw,
+        depth,
+        String(referenced_by),
+        :pending,
+        :none,
+        nothing,
+        AttemptLog[],
+        nothing,
+        nothing,
     )
 end
 
@@ -345,10 +352,7 @@ function _collect_references(store, entries, seen_keys, d::Int, job::FetchJob)
             key in seen_keys && continue
             push!(
                 new_entries,
-                FetchEntry(
-                    key, e.group, String(ref_raw);
-                    depth=d + 1, referenced_by=e.key,
-                ),
+                FetchEntry(key, e.group, String(ref_raw); depth=d + 1, referenced_by=e.key),
             )
             push!(seen_keys, key)
             n += 1
