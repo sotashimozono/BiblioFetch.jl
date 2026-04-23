@@ -15,6 +15,7 @@ include("core/env.jl")
 include("sources/http.jl")        # retry helper + URL consts + _to_plain
 include("sources/refs.jl")        # DOI/arXiv parsing + ref→URL helpers
 include("sources/crossref.jl")
+include("sources/datacite.jl")    # DataCite = Crossref for datasets (Zenodo etc)
 include("sources/unpaywall.jl")
 include("sources/arxiv.jl")
 include("core/store.jl")
@@ -32,6 +33,7 @@ export fetch_paper!, sync!
 export FetchEntry, FetchJob, FetchJobResult, AttemptLog, load_job
 export bibtex_entry, write_bibtex
 export find_duplicates, resolve_duplicates!
+export datacite_lookup
 export cli_main
 # NOTE: `run` is intentionally not exported — call as `BiblioFetch.run(path)` to
 # avoid shadowing `Base.run`.

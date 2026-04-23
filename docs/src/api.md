@@ -61,6 +61,12 @@ find_duplicates
 resolve_duplicates!
 ```
 
+## External metadata sources
+
+```@docs
+datacite_lookup
+```
+
 ## CLI
 
 ```@docs
