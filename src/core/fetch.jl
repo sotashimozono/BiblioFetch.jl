@@ -149,6 +149,11 @@ function fetch_paper!(
             ax = arxiv_id_from_crossref(meta)
             ax !== nothing && (md["arxiv_id"]=ax; arxiv=ax)
         end
+        # Record citation graph edges. The expansion step in BiblioFetch.run
+        # reads this field back to decide which references to queue as new
+        # entries.
+        refs_out = crossref_references(meta)
+        isempty(refs_out) || (md["referenced_dois"] = refs_out)
     end
 
     # Fallback enrichment: when Crossref gave us nothing but we have an arXiv

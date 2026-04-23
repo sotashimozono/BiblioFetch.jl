@@ -35,6 +35,28 @@ function crossref_lookup(
 end
 
 """
+    crossref_references(meta) -> Vector{String}
+
+Extract the DOIs of cited references from a Crossref metadata dict (as returned
+by [`crossref_lookup`](@ref)). Only entries with a `DOI` field are included —
+Crossref also carries unstructured text citations, which we can't follow.
+DOIs are lowercased for consistency with normalize_key.
+"""
+function crossref_references(meta::AbstractDict)
+    refs = get(meta, "reference", nothing)
+    refs isa AbstractVector || return String[]
+    out = String[]
+    for r in refs
+        r isa AbstractDict || continue
+        doi = get(r, "DOI", nothing)
+        doi === nothing && continue
+        s = strip(String(doi))
+        isempty(s) || push!(out, lowercase(s))
+    end
+    return out
+end
+
+"""
     arxiv_id_from_crossref(meta) -> String or nothing
 
 Mine a Crossref record for an arXiv preprint link. Checks

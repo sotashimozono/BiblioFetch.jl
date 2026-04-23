@@ -215,6 +215,16 @@ function _format_info_entry(md::AbstractDict; now_dt::Dates.DateTime=Dates.now()
     is_oa = get(md, "is_oa", nothing)
     is_oa === nothing || row("is_oa", string(is_oa))
 
+    # citation graph provenance (present only when the entry was queued by an
+    # expansion hop, not by the user directly)
+    depth = get(md, "depth", 0)
+    depth isa Integer && depth > 0 && row("depth", string(depth))
+    ref_by = String(get(md, "referenced_by", ""))
+    isempty(ref_by) || row("cited by", ref_by)
+
+    ref_count = length(get(md, "referenced_dois", []))
+    ref_count == 0 || row("cites", string(ref_count, " DOIs"))
+
     # citekey via the same function BibTeX export uses, so the user sees
     # exactly what would end up in refs.bib.
     row("citekey", _bibtex_key(md))
