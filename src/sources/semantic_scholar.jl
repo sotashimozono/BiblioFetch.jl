@@ -79,9 +79,7 @@ function s2_lookup(
     resp, _ = _http_get_with_retry(
         url;
         proxy=proxy,
-        request_kwargs=(;
-            headers=headers, connect_timeout=timeout, readtimeout=timeout,
-        ),
+        request_kwargs=(; headers=headers, connect_timeout=timeout, readtimeout=timeout),
         max_retries=max_retries,
         base_delay=base_delay,
         sleep_fn=sleep_fn,

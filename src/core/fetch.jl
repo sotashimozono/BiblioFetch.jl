@@ -226,15 +226,17 @@ function fetch_paper!(
             isempty(String(get(s2, "abstract", ""))) ||
                 (md["abstract"] = String(s2["abstract"]))
             # Prefer title / year / journal when we still don't have them
-            isempty(get(md, "title", "")) && haskey(s2, "title") &&
+            isempty(get(md, "title", "")) &&
+                haskey(s2, "title") &&
                 (md["title"] = String(s2["title"]))
-            (get(md, "year", nothing) in (nothing, "")) && haskey(s2, "year") &&
+            (get(md, "year", nothing) in (nothing, "")) &&
+                haskey(s2, "year") &&
                 (md["year"] = Int(s2["year"]))
-            isempty(String(get(md, "journal", ""))) && haskey(s2, "journal") &&
+            isempty(String(get(md, "journal", ""))) &&
+                haskey(s2, "journal") &&
                 (md["journal"] = String(s2["journal"]))
             haskey(s2, "s2_paper_id") && (md["s2_paper_id"] = String(s2["s2_paper_id"]))
-            haskey(s2, "oa_pdf_url") &&
-                push!(candidates, (:s2, String(s2["oa_pdf_url"])))
+            haskey(s2, "oa_pdf_url") && push!(candidates, (:s2, String(s2["oa_pdf_url"])))
         end
     end
 

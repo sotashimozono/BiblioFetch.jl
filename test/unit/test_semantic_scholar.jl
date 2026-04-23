@@ -35,7 +35,7 @@ end
 
 @testset "_s2_key: DOI + arXiv + invalid" begin
     @test BiblioFetch._s2_key("10.1103/physrevb.99.214433") ==
-          "DOI:10.1103/physrevb.99.214433"
+        "DOI:10.1103/physrevb.99.214433"
     @test BiblioFetch._s2_key("arxiv:1706.03762") == "ARXIV:1706.03762"
     @test_throws ArgumentError BiblioFetch._s2_key("not-a-key")
 end
@@ -44,15 +44,12 @@ end
     obj = Dict{String,Any}(
         "paperId" => "abc123",
         "title" => "Attention Is All You Need",
-        "authors" => [
-            Dict("name" => "Ashish Vaswani"),
-            Dict("name" => "Noam Shazeer"),
-        ],
+        "authors" => [Dict("name" => "Ashish Vaswani"), Dict("name" => "Noam Shazeer")],
         "year" => 2017,
         "abstract" => "We propose a new simple network architecture...",
         "journal" => Dict("name" => "NeurIPS"),
-        "openAccessPdf" => Dict("url" => "https://arxiv.org/pdf/1706.03762.pdf",
-                                 "status" => "GREEN"),
+        "openAccessPdf" =>
+            Dict("url" => "https://arxiv.org/pdf/1706.03762.pdf", "status" => "GREEN"),
     )
     out = BiblioFetch._extract_s2_fields(obj)
     @test out["title"] == "Attention Is All You Need"
@@ -104,17 +101,17 @@ function _s2_handler(req::HTTP.Request)
         """
         return HTTP.Response(200, ["Content-Type" => "application/json"], body)
     elseif occursin("DOI%3A10.1103%2Fphysrevb.404", p) ||
-           occursin("DOI:10.1103/physrevb.404", p)
+        occursin("DOI:10.1103/physrevb.404", p)
         return HTTP.Response(404, "not found")
     elseif occursin("DOI%3A10.1103%2Fphysrevb.closed", p) ||
-           occursin("DOI:10.1103/physrevb.closed", p)
+        occursin("DOI:10.1103/physrevb.closed", p)
         body = """
         {"paperId":"mock2","title":"Closed-access","authors":[{"name":"X"}],
          "year":2019,"openAccessPdf":null}
         """
         return HTTP.Response(200, ["Content-Type" => "application/json"], body)
     elseif occursin("DOI%3A10.1103%2Fphysrevb.auth", p) ||
-           occursin("DOI:10.1103/physrevb.auth", p)
+        occursin("DOI:10.1103/physrevb.auth", p)
         # Verify the api_key header round-trips via the x-api-key header.
         key = HTTP.header(req, "x-api-key", "")
         return HTTP.Response(
@@ -142,7 +139,7 @@ end
 @testset "s2_lookup: 404 → empty Dict" begin
     _with_mock_s2(_s2_handler) do base
         @test BiblioFetch.s2_lookup("10.1103/physrevb.404"; base_url=base) ==
-              Dict{String,Any}()
+            Dict{String,Any}()
     end
 end
 
@@ -157,7 +154,7 @@ end
 @testset "s2_lookup: api_key → x-api-key header sent to server" begin
     _with_mock_s2(_s2_handler) do base
         md = BiblioFetch.s2_lookup(
-            "10.1103/physrevb.auth"; base_url=base, api_key="SECRET123",
+            "10.1103/physrevb.auth"; base_url=base, api_key="SECRET123"
         )
         @test occursin("SECRET123", md["title"])
     end
@@ -178,14 +175,17 @@ end
     mktempdir() do dir
         job_path = joinpath(dir, "job.toml")
         open(job_path, "w") do io
-            write(io, """
-                [folder]
-                target = "$(dir)/papers"
-                [fetch]
-                sources = ["unpaywall", "s2", "arxiv"]
-                [doi]
-                list = ["arxiv:1706.03762"]
-            """)
+            write(
+                io,
+                """
+          [folder]
+          target = "$(dir)/papers"
+          [fetch]
+          sources = ["unpaywall", "s2", "arxiv"]
+          [doi]
+          list = ["arxiv:1706.03762"]
+      """,
+            )
         end
         job = BiblioFetch.load_job(job_path)
         @test Set(job.sources) == Set([:unpaywall, :s2, :arxiv])

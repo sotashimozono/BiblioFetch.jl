@@ -21,16 +21,16 @@ function _bare_rt(; email=nothing)
             rt
         else
             BiblioFetch.Runtime(
-            rt.hostname,
-            rt.profile,
-            rt.proxy,
-            rt.proxy_source,
-            rt.reachable,
-            rt.store_root,
-            email,
-            rt.mode,
-            rt.config_path,
-        )
+                rt.hostname,
+                rt.profile,
+                rt.proxy,
+                rt.proxy_source,
+                rt.reachable,
+                rt.store_root,
+                email,
+                rt.mode,
+                rt.config_path,
+            )
         end
     end
 end

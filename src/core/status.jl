@@ -75,7 +75,11 @@ const _STATUS_PROBES = (
     ),
     (:arxiv_api, "http://export.arxiv.org/api/query?max_results=0", "arXiv API"),
     (:arxiv_pdf, "https://arxiv.org/", "arXiv PDF downloads"),
-    (:s2, "https://api.semanticscholar.org/graph/v1/paper/DOI:10.1234/probe", "Semantic Scholar"),
+    (
+        :s2,
+        "https://api.semanticscholar.org/graph/v1/paper/DOI:10.1234/probe",
+        "Semantic Scholar",
+    ),
     (:doi, "https://doi.org/", "publisher direct (doi.org)"),
 )
 
