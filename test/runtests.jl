@@ -1,9 +1,9 @@
 ENV["GKSwstype"] = "100"
 
-using MyModule, Test
+using BiblioFetch, Test
 const dirs = []
 
-const FIG_BASE = joinpath(pkgdir(MyModule), "docs", "src", "assets")
+const FIG_BASE = joinpath(pkgdir(BiblioFetch), "docs", "src", "assets")
 const PATHS = Dict()
 mkpath.(values(PATHS))
 

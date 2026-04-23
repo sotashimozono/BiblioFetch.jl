@@ -1,7 +1,7 @@
-# MyModule.jl
+# BiblioFetch.jl
 
 ## Models
 
 ```@autodocs
-Modules = [MyModule]
+Modules = [BiblioFetch]
 ```
