@@ -27,11 +27,7 @@ makedocs(;
         assets=["assets/favicon.ico", "assets/custom.css"],
     ),
     modules=[BiblioFetch],
-    pages=[
-        "Home" => "index.md",
-        "Usage Guide" => "guide.md",
-        "API Reference" => "api.md",
-    ],
+    pages=["Home" => "index.md", "Usage Guide" => "guide.md", "API Reference" => "api.md"],
     checkdocs=:exports,
 )
 
