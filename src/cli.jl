@@ -63,7 +63,8 @@ function _cmd_add(args)
     while i <= length(args)
         a = args[i]
         if a == "-f" || a == "--file"
-            i += 1; i <= length(args) || (println(stderr, "add: -f needs a path"); return 2)
+            i += 1;
+            i <= length(args) || (println(stderr, "add: -f needs a path"); return 2)
             append!(refs, _read_refs_file(args[i]))
         else
             push!(refs, a)
@@ -71,7 +72,7 @@ function _cmd_add(args)
         i += 1
     end
     isempty(refs) && (println(stderr, "add: no references given"); return 2)
-    rt = detect_environment(probe = false)
+    rt = detect_environment(; probe=false)
     store = open_store(rt.store_root)
     n_added = 0
     for r in refs
@@ -93,7 +94,7 @@ function _cmd_sync(args)
     rt = detect_environment()
     store = open_store(rt.store_root)
     !quiet && (show(stdout, MIME("text/plain"), rt); println(); println())
-    results = sync!(store; rt = rt, only_pending = !force, verbose = !quiet)
+    results = sync!(store; rt=rt, only_pending=(!force), verbose=(!quiet))
     n_ok = count(r -> r.ok, results)
     println("\nsync: $(n_ok)/$(length(results)) succeeded")
     for r in results
@@ -110,11 +111,13 @@ function _cmd_fetch(args)
     refs = filter(a -> !startswith(a, "--"), args)
     rt = detect_environment()
     store = open_store(rt.store_root)
-    show(stdout, MIME("text/plain"), rt); println(); println()
+    show(stdout, MIME("text/plain"), rt);
+    println();
+    println()
     rc = 0
     for r in refs
         key = queue_reference!(store, r)
-        res = fetch_paper!(store, key; rt = rt, force = force)
+        res = fetch_paper!(store, key; rt=rt, force=force)
         if res.ok
             println("✓ $(res.key)  [$(res.source)]  → $(res.pdf_path)")
         else
@@ -127,15 +130,15 @@ end
 
 function _cmd_list(args)
     show_all = "--all" in args
-    rt = detect_environment(probe = false)
+    rt = detect_environment(; probe=false)
     store = open_store(rt.store_root)
     for safekey in list_entries(store)
         p = joinpath(store.root, METADATA_DIRNAME, safekey * ".toml")
         md = TOML.parsefile(p)
         status = get(md, "status", "?")
         show_all || status in ("pending", "failed") || continue
-        key    = get(md, "key", safekey)
-        title  = get(md, "title", "")
+        key = get(md, "key", safekey)
+        title = get(md, "title", "")
         title_short = length(title) > 60 ? title[1:57] * "…" : title
         @printf("  [%-7s] %-45s  %s\n", status, key, title_short)
     end
@@ -144,17 +147,21 @@ end
 
 function _cmd_info(args)
     isempty(args) && (println(stderr, "info: need a reference"); return 2)
-    rt = detect_environment(probe = false)
+    rt = detect_environment(; probe=false)
     store = open_store(rt.store_root)
     for r in args
-        key = try; normalize_key(r); catch; r; end
+        key = try
+            ; normalize_key(r);
+        catch
+            ; r;
+        end
         md = read_metadata(store, key)
         if isempty(md)
             println(stderr, "  (not found) $key")
             continue
         end
         println("── $key ──")
-        TOML.print(stdout, md; sorted = true)
+        TOML.print(stdout, md; sorted=true)
         println()
     end
     return 0
@@ -166,7 +173,7 @@ function _cmd_run(args)
     quiet = ("--quiet" in args) || ("-q" in args)
     rt = detect_environment()
     !quiet && (show(stdout, MIME("text/plain"), rt); println(); println())
-    result = run(path; verbose = !quiet, runtime = rt)
+    result = run(path; verbose=(!quiet), runtime=rt)
     show(stdout, MIME("text/plain"), result)
     println()
     n_ok = count(e -> e.status === :ok, result.entries)
@@ -178,20 +185,30 @@ end
 
 Dispatch a `bibliofetch …` command line. Returns exit code.
 """
-function cli_main(args::AbstractVector{<:AbstractString} = ARGS)
+function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
     if isempty(args) || args[1] in ("-h", "--help", "help")
-        print(CLI_HELP); return 0
+        print(CLI_HELP);
+        return 0
     end
     cmd, rest = args[1], args[2:end]
     try
-        return cmd == "env"   ? _cmd_env(rest)   :
-               cmd == "run"   ? _cmd_run(rest)   :
-               cmd == "add"   ? _cmd_add(rest)   :
-               cmd == "sync"  ? _cmd_sync(rest)  :
-               cmd == "fetch" ? _cmd_fetch(rest) :
-               cmd == "list"  ? _cmd_list(rest)  :
-               cmd == "info"  ? _cmd_info(rest)  :
-               (println(stderr, "unknown command: $cmd"); print(CLI_HELP); 2)
+        return if cmd == "env"
+            _cmd_env(rest)
+        elseif cmd == "run"
+            _cmd_run(rest)
+        elseif cmd == "add"
+            _cmd_add(rest)
+        elseif cmd == "sync"
+            _cmd_sync(rest)
+        elseif cmd == "fetch"
+            _cmd_fetch(rest)
+        elseif cmd == "list"
+            _cmd_list(rest)
+        elseif cmd == "info"
+            _cmd_info(rest)
+        else
+            (println(stderr, "unknown command: $cmd"); print(CLI_HELP); 2)
+        end
     catch e
         println(stderr, "bibliofetch: ", sprint(showerror, e))
         return 1

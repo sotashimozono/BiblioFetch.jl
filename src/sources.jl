@@ -20,10 +20,10 @@ end
 
 # ---------- key normalization ----------
 
-const _DOI_RE   = r"^10\.\d{4,9}/\S+$"i
+const _DOI_RE = r"^10\.\d{4,9}/\S+$"i
 const _ARXIV_RE = r"^(arxiv:)?(\d{4}\.\d{4,5}(v\d+)?|[a-z\-]+(\.[A-Z]{2})?/\d{7}(v\d+)?)$"i
 
-is_doi(s::AbstractString)   = occursin(_DOI_RE, strip(s))
+is_doi(s::AbstractString) = occursin(_DOI_RE, strip(s))
 is_arxiv(s::AbstractString) = occursin(_ARXIV_RE, strip(s))
 
 """
@@ -37,10 +37,17 @@ Throws `ArgumentError` if unrecognized.
 function normalize_key(s::AbstractString)
     t = strip(s)
     # strip common URL prefixes
-    for pre in ("https://doi.org/", "http://doi.org/", "doi:", "DOI:",
-                "https://arxiv.org/abs/", "http://arxiv.org/abs/", "https://arxiv.org/pdf/")
+    for pre in (
+        "https://doi.org/",
+        "http://doi.org/",
+        "doi:",
+        "DOI:",
+        "https://arxiv.org/abs/",
+        "http://arxiv.org/abs/",
+        "https://arxiv.org/pdf/",
+    )
         if startswith(t, pre)
-            t = t[length(pre)+1:end]
+            t = t[(length(pre) + 1):end]
             break
         end
     end
@@ -62,13 +69,17 @@ end
 
 Fetch Crossref metadata for a DOI. Returns an empty Dict on failure.
 """
-function crossref_lookup(doi::AbstractString; proxy = nothing, timeout = 15)
+function crossref_lookup(doi::AbstractString; proxy=nothing, timeout=15)
     url = "https://api.crossref.org/works/" * URIs.escapeuri(doi)
     try
-        kw = (; headers = ["User-Agent" => USER_AGENT],
-              connect_timeout = timeout, readtimeout = timeout,
-              status_exception = false, retry = false)
-        resp = proxy === nothing ? HTTP.get(url; kw...) : HTTP.get(url; proxy = proxy, kw...)
+        kw = (;
+            headers=["User-Agent" => USER_AGENT],
+            connect_timeout=timeout,
+            readtimeout=timeout,
+            status_exception=false,
+            retry=false,
+        )
+        resp = proxy === nothing ? HTTP.get(url; kw...) : HTTP.get(url; proxy=proxy, kw...)
         resp.status == 200 || return Dict{String,Any}()
         obj = JSON3.read(resp.body)
         return _to_plain(obj[:message])
@@ -85,13 +96,23 @@ end
 
 Ask Unpaywall for the best OA PDF URL. Requires `email`.
 """
-function unpaywall_lookup(doi::AbstractString; email::AbstractString, proxy = nothing, timeout = 15)
-    url = "https://api.unpaywall.org/v2/" * URIs.escapeuri(doi) * "?email=" * URIs.escapeuri(email)
+function unpaywall_lookup(
+    doi::AbstractString; email::AbstractString, proxy=nothing, timeout=15
+)
+    url =
+        "https://api.unpaywall.org/v2/" *
+        URIs.escapeuri(doi) *
+        "?email=" *
+        URIs.escapeuri(email)
     try
-        kw = (; headers = ["User-Agent" => USER_AGENT],
-              connect_timeout = timeout, readtimeout = timeout,
-              status_exception = false, retry = false)
-        resp = proxy === nothing ? HTTP.get(url; kw...) : HTTP.get(url; proxy = proxy, kw...)
+        kw = (;
+            headers=["User-Agent" => USER_AGENT],
+            connect_timeout=timeout,
+            readtimeout=timeout,
+            status_exception=false,
+            retry=false,
+        )
+        resp = proxy === nothing ? HTTP.get(url; kw...) : HTTP.get(url; proxy=proxy, kw...)
         resp.status == 200 || return (nothing, Dict{String,Any}())
         obj = _to_plain(JSON3.read(resp.body))
         loc = get(obj, "best_oa_location", nothing)
@@ -138,17 +159,25 @@ end
 Fallback: hit the arXiv API by title (and optionally first author) and return the
 first matching arXiv id. Approximate — use as a last resort.
 """
-function arxiv_search_by_title(title::AbstractString;
-                               authors::Vector{<:AbstractString} = String[],
-                               proxy = nothing, timeout = 15)
+function arxiv_search_by_title(
+    title::AbstractString;
+    authors::Vector{<:AbstractString}=String[],
+    proxy=nothing,
+    timeout=15,
+)
     q = "ti:\"" * replace(title, '"' => ' ') * "\""
     isempty(authors) || (q *= " AND au:\"" * replace(first(authors), '"' => ' ') * "\"")
-    url = "http://export.arxiv.org/api/query?max_results=1&search_query=" * URIs.escapeuri(q)
+    url =
+        "http://export.arxiv.org/api/query?max_results=1&search_query=" * URIs.escapeuri(q)
     try
-        kw = (; headers = ["User-Agent" => USER_AGENT],
-              connect_timeout = timeout, readtimeout = timeout,
-              status_exception = false, retry = false)
-        resp = proxy === nothing ? HTTP.get(url; kw...) : HTTP.get(url; proxy = proxy, kw...)
+        kw = (;
+            headers=["User-Agent" => USER_AGENT],
+            connect_timeout=timeout,
+            readtimeout=timeout,
+            status_exception=false,
+            retry=false,
+        )
+        resp = proxy === nothing ? HTTP.get(url; kw...) : HTTP.get(url; proxy=proxy, kw...)
         resp.status == 200 || return nothing
         body = String(resp.body)
         m = match(r"<id>https?://arxiv\.org/abs/([^<]+)</id>"i, body)

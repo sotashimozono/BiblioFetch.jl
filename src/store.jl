@@ -33,7 +33,7 @@ end
 function _normalize_group(group::AbstractString)
     g = strip(String(group), '/')
     isempty(g) && return ""
-    segments = split(g, '/'; keepempty = false)
+    segments = split(g, '/'; keepempty=false)
     any(s -> s == ".." || s == ".", segments) &&
         throw(ArgumentError("group path may not contain '.' or '..': $(group)"))
     return join(segments, '/')
@@ -41,15 +41,17 @@ end
 
 metadata_path(s::Store, key) = joinpath(s.root, METADATA_DIRNAME, _safe_key(key) * ".toml")
 
-function pdf_path(s::Store, key; group::AbstractString = "")
+function pdf_path(s::Store, key; group::AbstractString="")
     g = _normalize_group(group)
     dir = isempty(g) ? s.root : joinpath(s.root, g)
     return joinpath(dir, _safe_key(key) * ".pdf")
 end
 
 has_metadata(s::Store, key) = isfile(metadata_path(s, key))
-has_pdf(s::Store, key; group::AbstractString = "") =
-    let p = pdf_path(s, key; group = group); isfile(p) && filesize(p) > 0 end
+has_pdf(s::Store, key; group::AbstractString="") =
+    let p = pdf_path(s, key; group=group);
+        isfile(p) && filesize(p) > 0
+    end
 
 # Locate an existing PDF for `key` regardless of group (for migrations / lookups).
 function find_pdf(s::Store, key)
@@ -78,7 +80,7 @@ function write_metadata!(s::Store, key, md::AbstractDict)
     p = metadata_path(s, key)
     mkpath(dirname(p))
     open(p, "w") do io
-        TOML.print(io, _stringify(md); sorted = true)
+        TOML.print(io, _stringify(md); sorted=true)
     end
     return p
 end
@@ -112,25 +114,25 @@ function entry_info(s::Store, key::AbstractString)
     md = read_metadata(s, key)
     isempty(md) && return nothing
     return (
-        key      = get(md, "key",   ""),
-        title    = get(md, "title", ""),
-        status   = get(md, "status", "unknown"),
-        source   = get(md, "source", ""),
-        group    = get(md, "group",  ""),
-        pdf_path = get(md, "pdf_path", ""),
-        year     = get(md, "year", nothing),
+        key=get(md, "key", ""),
+        title=get(md, "title", ""),
+        status=get(md, "status", "unknown"),
+        source=get(md, "source", ""),
+        group=get(md, "group", ""),
+        pdf_path=get(md, "pdf_path", ""),
+        year=get(md, "year", nothing),
     )
 end
 
-function queue_reference!(s::Store, raw::AbstractString; group::AbstractString = "")
+function queue_reference!(s::Store, raw::AbstractString; group::AbstractString="")
     key = normalize_key(raw)
     md = read_metadata(s, key)
     if isempty(md)
-        md["key"]        = key
-        md["added_at"]   = string(Dates.now())
-        md["status"]     = "pending"
-        md["raw"]        = String(raw)
-        md["group"]      = _normalize_group(group)
+        md["key"] = key
+        md["added_at"] = string(Dates.now())
+        md["status"] = "pending"
+        md["raw"] = String(raw)
+        md["group"] = _normalize_group(group)
         write_metadata!(s, key, md)
     end
     return key

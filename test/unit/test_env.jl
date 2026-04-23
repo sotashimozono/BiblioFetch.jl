@@ -5,20 +5,23 @@ using Test
     mktempdir() do dir
         cfg_path = joinpath(dir, "config.toml")
         open(cfg_path, "w") do io
-            write(io, """
-                [defaults]
-                email = "test@example.com"
-                store_root = "$(dir)/store"
+            write(
+                io,
+                """
+          [defaults]
+          email = "test@example.com"
+          store_root = "$(dir)/store"
 
-                [profiles.panza]
-                proxy = "http://proxy.univ.example:8080"
+          [profiles.panza]
+          proxy = "http://proxy.univ.example:8080"
 
-                [profiles.remote]
-                proxy = "http://localhost:18080"
-            """)
+          [profiles.remote]
+          proxy = "http://localhost:18080"
+      """,
+            )
         end
 
-        cfg, path = BiblioFetch.load_config(; path = cfg_path)
+        cfg, path = BiblioFetch.load_config(; path=cfg_path)
         @test path == cfg_path
         @test haskey(cfg, "profiles")
         @test cfg["defaults"]["email"] == "test@example.com"
@@ -31,23 +34,21 @@ end
 
     # proxy unreachable → :oa_only
     @test BiblioFetch._classify_mode("http://proxy.example:8080", :profile, false) ===
-          :oa_only
+        :oa_only
 
     # localhost proxy reachable → :tunneled
-    @test BiblioFetch._classify_mode("http://localhost:18080", :profile, true) ===
-          :tunneled
-    @test BiblioFetch._classify_mode("http://127.0.0.1:18080", :env, true) ===
-          :tunneled
+    @test BiblioFetch._classify_mode("http://localhost:18080", :profile, true) === :tunneled
+    @test BiblioFetch._classify_mode("http://127.0.0.1:18080", :env, true) === :tunneled
 
     # remote proxy reachable → :direct
     @test BiblioFetch._classify_mode("http://proxy.univ.example:8080", :profile, true) ===
-          :direct
+        :direct
 end
 
 @testset "profile selection" begin
     cfg = Dict{String,Any}(
         "profiles" => Dict{String,Any}(
-            "panza"     => Dict("proxy" => "http://a:1"),
+            "panza" => Dict("proxy" => "http://a:1"),
             "compute-a" => Dict("proxy" => "http://b:2"),
         ),
         "defaults" => Dict("email" => "x@y"),
@@ -70,16 +71,23 @@ end
     mktempdir() do dir
         cfg_path = joinpath(dir, "config.toml")
         open(cfg_path, "w") do io
-            write(io, """
-                [defaults]
-                email      = "test@example.com"
-                store_root = "$(dir)/store"
-            """)
+            write(
+                io,
+                """
+          [defaults]
+          email      = "test@example.com"
+          store_root = "$(dir)/store"
+      """,
+            )
         end
-        withenv("BIBLIOFETCH_CONFIG" => cfg_path,
-                "HTTP_PROXY" => nothing, "HTTPS_PROXY" => nothing,
-                "http_proxy" => nothing, "https_proxy" => nothing) do
-            rt = detect_environment(; probe = false)
+        withenv(
+            "BIBLIOFETCH_CONFIG" => cfg_path,
+            "HTTP_PROXY" => nothing,
+            "HTTPS_PROXY" => nothing,
+            "http_proxy" => nothing,
+            "https_proxy" => nothing,
+        ) do
+            rt = detect_environment(; probe=false)
             @test rt.proxy === nothing
             @test rt.proxy_source === :none
             @test rt.email == "test@example.com"
