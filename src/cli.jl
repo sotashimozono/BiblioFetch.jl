@@ -7,8 +7,8 @@ Usage:
   bibliofetch bib <dir> [--out <path>]    Export BibTeX for all ok entries in a store root
   bibliofetch add <ref> [<ref> …]         Queue refs into the global store
   bibliofetch add -f <file>               Queue from a file (one ref per line; '#' comments ok)
-  bibliofetch sync [--force] [--quiet]    Fetch all pending/failed entries in the global store
-  bibliofetch fetch <ref> [--force]       Fetch one reference into the global store
+  bibliofetch sync [--force] [--quiet]    Fetch pending/failed entries; --force re-downloads even ok+pdf entries
+  bibliofetch fetch <ref> [--force]       Fetch one reference; --force re-downloads even if the PDF is cached
   bibliofetch list [--all]                List global store entries
   bibliofetch info <ref> [--raw]          Show stored metadata (pretty; --raw for TOML dump)
   bibliofetch help                        Show this message
@@ -95,7 +95,7 @@ function _cmd_sync(args)
     rt = detect_environment()
     store = open_store(rt.store_root)
     !quiet && (show(stdout, MIME("text/plain"), rt); println(); println())
-    results = sync!(store; rt=rt, only_pending=(!force), verbose=(!quiet))
+    results = sync!(store; rt=rt, force=force, verbose=(!quiet))
     n_ok = count(r -> r.ok, results)
     println("\nsync: $(n_ok)/$(length(results)) succeeded")
     for r in results

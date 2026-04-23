@@ -254,15 +254,23 @@ function _attempts_to_dict(a::AttemptLog)
 end
 
 """
-    sync!(store; rt = detect_environment(), only_pending = true) -> Vector{FetchResult}
+    sync!(store; rt = detect_environment(), force = false, verbose = true)
+        -> Vector{FetchResult}
 
-Walk the store's metadata directory and fetch all pending (or failed) entries,
-preserving each entry's stored `group`.
+Walk the store's metadata directory and (re)fetch entries, preserving each
+entry's stored `group`.
+
+  * **default** (`force = false`): skip entries that already have `status = "ok"`
+    *and* a PDF on disk. Everything else — pending, failed, or status-ok with a
+    missing PDF — is fetched. Useful for resuming a partial run.
+  * **`force = true`**: every tracked entry is re-downloaded, even ones already
+    on disk. `force = true` is propagated to `fetch_paper!`, so its cached
+    fast-path is bypassed and the PDF is overwritten.
 """
 function sync!(
     store::Store;
     rt::Runtime=detect_environment(),
-    only_pending::Bool=true,
+    force::Bool=false,
     verbose::Bool=true,
 )
     results = FetchResult[]
@@ -273,11 +281,15 @@ function sync!(
         isempty(key) && continue
         status = get(md, "status", "pending")
         group = String(get(md, "group", ""))
-        if only_pending && status == "ok" && has_pdf(store, key; group=group)
+        # Without --force, skip entries that are clearly already done.
+        if !force && status == "ok" && has_pdf(store, key; group=group)
             continue
         end
-        verbose && @info "syncing" key status group
-        push!(results, fetch_paper!(store, key; rt=rt, group=group, verbose=verbose))
+        verbose && @info "syncing" key status group force
+        push!(
+            results,
+            fetch_paper!(store, key; rt=rt, group=group, force=force, verbose=verbose),
+        )
     end
     return results
 end
