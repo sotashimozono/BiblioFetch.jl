@@ -80,27 +80,23 @@ end
         "references" => [
             Dict("externalIds" => Dict("DOI" => "10.1103/PhysRevB.99.214433")),
             Dict("externalIds" => Dict("ArXiv" => "1706.03762")),
-            Dict("externalIds" => Dict(),                  "title" => "unknown ref"),
+            Dict("externalIds" => Dict(), "title" => "unknown ref"),
             Dict("externalIds" => Dict("DOI" => "  10.1038/NATURE12345  ")),
             Dict("externalIds" => Dict("DOI" => "")),       # empty → skip
             "not a dict",                                   # malformed → skip
         ],
     )
     out = BiblioFetch._extract_s2_fields(obj)
-    @test out["references"] == [
-        "10.1103/physrevb.99.214433",
-        "arxiv:1706.03762",
-        "10.1038/nature12345",
-    ]
+    @test out["references"] ==
+        ["10.1103/physrevb.99.214433", "arxiv:1706.03762", "10.1038/nature12345"]
 end
 
 @testset "_extract_s2_fields: DOI wins over ArXiv when both present in one ref" begin
     obj = Dict{String,Any}(
         "title" => "X",
         "references" => [
-            Dict("externalIds" => Dict(
-                "DOI" => "10.1234/primary", "ArXiv" => "1234.5678",
-            )),
+            Dict("externalIds" =>
+                    Dict("DOI" => "10.1234/primary", "ArXiv" => "1234.5678")),
         ],
     )
     out = BiblioFetch._extract_s2_fields(obj)
