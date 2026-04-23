@@ -268,10 +268,7 @@ entry's stored `group`.
     fast-path is bypassed and the PDF is overwritten.
 """
 function sync!(
-    store::Store;
-    rt::Runtime=detect_environment(),
-    force::Bool=false,
-    verbose::Bool=true,
+    store::Store; rt::Runtime=detect_environment(), force::Bool=false, verbose::Bool=true
 )
     results = FetchResult[]
     for safekey in list_entries(store)
