@@ -39,34 +39,48 @@ function _looks_like_pdf(path::AbstractString)
 end
 
 # HTTP.jl-based downloader. Returns a NamedTuple with enough info for AttemptLog.
+# Shares the retry helper with the metadata lookups so a 429 / 503 from a
+# publisher (or arXiv under load) is backed off instead of immediately failing.
 function _http_download_pdf(
-    url::AbstractString, dest::AbstractString; proxy=nothing, timeout=60
+    url::AbstractString,
+    dest::AbstractString;
+    proxy=nothing,
+    timeout=60,
+    max_retries::Int=DEFAULT_MAX_RETRIES,
+    base_delay::Real=DEFAULT_BASE_DELAY,
+    sleep_fn=Base.sleep,
 )
     mkpath(dirname(dest))
     tmp = dest * ".part"
-    status_code::Union{Int,Nothing} = nothing
-    try
-        kw = (;
+
+    resp, err = _http_get_with_retry(
+        url;
+        proxy=proxy,
+        request_kwargs=(;
             headers=["User-Agent" => USER_AGENT, "Accept" => "application/pdf,*/*"],
             connect_timeout=timeout,
             readtimeout=timeout * 2,
             redirect=true,
             redirect_limit=10,
-            status_exception=false,
-            retry=false,
-        )
-        resp = proxy === nothing ? HTTP.get(url; kw...) : HTTP.get(url; proxy=proxy, kw...)
-        status_code = Int(resp.status)
-        if !(200 <= resp.status < 300)
-            return (ok=false, http_status=status_code, error="http status $(resp.status)")
-        end
+        ),
+        max_retries=max_retries,
+        base_delay=base_delay,
+        sleep_fn=sleep_fn,
+    )
+    if resp === nothing
+        return (ok=false, http_status=nothing, error="http: $(err)")
+    end
+    status_code = Int(resp.status)
+    if !(200 <= status_code < 300)
+        return (ok=false, http_status=status_code, error="http status $(status_code)")
+    end
+    try
         open(tmp, "w") do io
-            ;
-            write(io, resp.body);
+            write(io, resp.body)
         end
     catch e
         isfile(tmp) && rm(tmp; force=true)
-        return (ok=false, http_status=status_code, error="http: " * sprint(showerror, e))
+        return (ok=false, http_status=status_code, error="write: " * sprint(showerror, e))
     end
     if !_looks_like_pdf(tmp)
         rm(tmp; force=true)

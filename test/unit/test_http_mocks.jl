@@ -233,11 +233,122 @@ end
         @test BiblioFetch.arxiv_metadata("1234.5678"; base_url=base) === nothing
     end
 
-    # Connection refused: point at a port we've already freed
+    # Connection refused: point at a port we've already freed. Disable retries
+    # so the test isn't multiplied by exponential backoff (the retry path is
+    # exercised explicitly in the retry-specific testset below).
     dead_port = _free_port()
     dead_base = "http://127.0.0.1:$(dead_port)"
     @test BiblioFetch.crossref_lookup(
-        "10.1/x"; base_url=dead_base * "/works/", timeout=2
+        "10.1/x"; base_url=dead_base * "/works/", timeout=2, max_retries=0
     ) == Dict{String,Any}()
-    @test BiblioFetch.arxiv_metadata("1234.5678"; base_url=dead_base, timeout=2) === nothing
+    @test BiblioFetch.arxiv_metadata(
+        "1234.5678"; base_url=dead_base, timeout=2, max_retries=0
+    ) === nothing
+end
+
+# --- retry + backoff ---
+
+# Handler that returns `status` on the first N calls, then the success body.
+# Call-count state lives in a Ref so the handler closure can increment it.
+function _flaky_then_success(flakes::Ref{Int}, status::Int, body::String)
+    return function (_req::HTTP.Request)
+        flakes[] -= 1
+        if flakes[] >= 0
+            return HTTP.Response(status, [], "retry me")
+        end
+        return HTTP.Response(200, ["Content-Type" => "application/json"], body)
+    end
+end
+
+@testset "retry: 429 then 200 eventually succeeds" begin
+    flakes = Ref(2)   # two 429s, then the real payload
+    body = """{"status":"ok","message":{"title":["Hit After Retry"]}}"""
+    _with_mock(_flaky_then_success(flakes, 429, body)) do base
+        md = BiblioFetch.crossref_lookup(
+            "10.1/hit";
+            base_url=base * "/works/",
+            base_delay=0.01,          # ~30 ms total
+            sleep_fn=(_)->nothing,    # actually skip the wall-clock sleep
+        )
+        @test md["title"][1] == "Hit After Retry"
+        @test flakes[] == -1          # 2 retried flakes + 1 success
+    end
+end
+
+@testset "retry: 429 forever gives up after max_retries" begin
+    call_count = Ref(0)
+    handler = function (_req::HTTP.Request)
+        call_count[] += 1
+        HTTP.Response(429, [], "throttled")
+    end
+    _with_mock(handler) do base
+        md = BiblioFetch.crossref_lookup(
+            "10.1/hit";
+            base_url=base * "/works/",
+            max_retries=2,
+            base_delay=0.01,
+            sleep_fn=(_)->nothing,
+        )
+        @test md == Dict{String,Any}()
+        @test call_count[] == 3        # initial attempt + 2 retries
+    end
+end
+
+@testset "retry: honors Retry-After header (seconds form)" begin
+    slept_with = Float64[]
+    flakes = Ref(1)
+    handler = function (_req::HTTP.Request)
+        flakes[] -= 1
+        if flakes[] >= 0
+            return HTTP.Response(429, ["Retry-After" => "7"], "throttled")
+        end
+        return HTTP.Response(
+            200,
+            ["Content-Type" => "application/json"],
+            """{"message":{"title":["After wait"]}}""",
+        )
+    end
+    _with_mock(handler) do base
+        md = BiblioFetch.crossref_lookup(
+            "10.1/hit";
+            base_url=base * "/works/",
+            base_delay=1.0,
+            sleep_fn=d -> push!(slept_with, Float64(d)),
+        )
+        @test md["title"][1] == "After wait"
+        @test slept_with == [7.0]       # Retry-After value used verbatim, not 2^attempt
+    end
+end
+
+@testset "retry: non-retriable status (404) returns immediately" begin
+    call_count = Ref(0)
+    handler = function (_req::HTTP.Request)
+        call_count[] += 1
+        HTTP.Response(404, [], "nope")
+    end
+    _with_mock(handler) do base
+        md = BiblioFetch.crossref_lookup(
+            "10.1/hit";
+            base_url=base * "/works/",
+            max_retries=5,
+            base_delay=0.01,
+            sleep_fn=(_)->nothing,
+        )
+        @test md == Dict{String,Any}()
+        @test call_count[] == 1
+    end
+end
+
+@testset "retry: _parse_retry_after" begin
+    r1 = HTTP.Response(429, ["Retry-After" => "12"], "")
+    @test BiblioFetch._parse_retry_after(r1) == 12.0
+
+    r2 = HTTP.Response(429, ["retry-after" => "3.5"], "")   # case-insensitive
+    @test BiblioFetch._parse_retry_after(r2) == 3.5
+
+    r3 = HTTP.Response(429, ["Retry-After" => "Wed, 21 Oct 2015 07:28:00 GMT"], "")
+    @test BiblioFetch._parse_retry_after(r3) === nothing    # HTTP-date form skipped
+
+    r4 = HTTP.Response(200, [], "")
+    @test BiblioFetch._parse_retry_after(r4) === nothing    # no header
 end
