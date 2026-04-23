@@ -21,6 +21,7 @@ include("sources/arxiv.jl")
 include("core/store.jl")
 include("core/fetch.jl")
 include("core/dedup.jl")          # depends on store + sha256 from fetch
+include("core/status.jl")         # depends on env (Runtime) + sources (USER_AGENT)
 include("io/bibtex.jl")
 include("core/job.jl")            # depends on fetch + store + bibtex
 include("core/watch.jl")          # depends on job.run
@@ -34,6 +35,7 @@ export FetchEntry, FetchJob, FetchJobResult, AttemptLog, load_job
 export bibtex_entry, write_bibtex
 export find_duplicates, resolve_duplicates!
 export datacite_lookup
+export status, NetworkStatus, ProbeResult, is_reachable
 export cli_main
 # NOTE: `run` is intentionally not exported — call as `BiblioFetch.run(path)` to
 # avoid shadowing `Base.run`.

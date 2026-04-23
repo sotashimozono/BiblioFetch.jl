@@ -67,6 +67,15 @@ resolve_duplicates!
 datacite_lookup
 ```
 
+## Network status
+
+```@docs
+status
+is_reachable
+NetworkStatus
+ProbeResult
+```
+
 ## CLI
 
 ```@docs
