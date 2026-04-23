@@ -562,11 +562,19 @@ function Base.show(io::IO, ::MIME"text/plain", issues::AbstractVector{StoreIssue
     for iss in issues
         if iss.kind !== current_kind
             current_kind = iss.kind
-            mark = iss.kind === :pdf_missing ? "✗" :
-                   iss.kind === :orphan_pdf ? "?" :
-                   iss.kind === :incomplete_part ? "~" :
-                   iss.kind === :sha_mismatch ? "!" :
-                   iss.kind === :empty_pdf ? "∅" : "?"
+            mark = if iss.kind === :pdf_missing
+                "✗"
+            elseif iss.kind === :orphan_pdf
+                "?"
+            elseif iss.kind === :incomplete_part
+                "~"
+            elseif iss.kind === :sha_mismatch
+                "!"
+            elseif iss.kind === :empty_pdf
+                "∅"
+            else
+                "?"
+            end
             cnt = count(x -> x.kind === iss.kind, issues)
             println(io, "\n  ", mark, " ", iss.kind, " (", cnt, ")")
         end
@@ -602,8 +610,10 @@ function _cmd_doctor(args)
             "explicit `kinds=(…)` to include orphans / sha_mismatch / empty_pdf.",
         )
     else
-        println("\n\n$(length(issues)) issue(s). Re-run with --fix to auto-clean " *
-                ":incomplete_part + :pdf_missing.")
+        println(
+            "\n\n$(length(issues)) issue(s). Re-run with --fix to auto-clean " *
+            ":incomplete_part + :pdf_missing.",
+        )
     end
     return 0
 end

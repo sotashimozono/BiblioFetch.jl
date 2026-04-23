@@ -69,8 +69,15 @@ function doctor(store::Store)
         isempty(pdf) && continue
 
         if !isfile(pdf)
-            push!(issues, StoreIssue(:pdf_missing, key, pdf,
-                                     "metadata points at a file that is no longer there"))
+            push!(
+                issues,
+                StoreIssue(
+                    :pdf_missing,
+                    key,
+                    pdf,
+                    "metadata points at a file that is no longer there",
+                ),
+            )
             continue
         end
 
@@ -89,10 +96,15 @@ function doctor(store::Store)
                 ""
             end
             if !isempty(actual) && actual != recorded_hash
-                push!(issues, StoreIssue(
-                    :sha_mismatch, key, pdf,
-                    "sha256 on disk ($(actual[1:min(12,end)])…) differs from metadata ($(recorded_hash[1:min(12,end)])…)",
-                ))
+                push!(
+                    issues,
+                    StoreIssue(
+                        :sha_mismatch,
+                        key,
+                        pdf,
+                        "sha256 on disk ($(actual[1:min(12,end)])…) differs from metadata ($(recorded_hash[1:min(12,end)])…)",
+                    ),
+                )
             end
         end
     end
@@ -100,13 +112,18 @@ function doctor(store::Store)
     # 2) walk files on disk — flag orphans and .part leftovers
     for f in _collect_pdf_paths(store.root)
         if endswith(f, ".part")
-            push!(issues, StoreIssue(:incomplete_part, "", f,
-                                     "leftover from an interrupted download"))
+            push!(
+                issues,
+                StoreIssue(
+                    :incomplete_part, "", f, "leftover from an interrupted download"
+                ),
+            )
             continue
         end
         abspath(f) in referenced_paths && continue
-        push!(issues, StoreIssue(:orphan_pdf, "", f,
-                                 "not referenced by any .metadata/ entry"))
+        push!(
+            issues, StoreIssue(:orphan_pdf, "", f, "not referenced by any .metadata/ entry")
+        )
     end
 
     sort!(issues; by=i -> (string(i.kind), i.key, i.path))
@@ -129,9 +146,7 @@ pass their symbol in `kinds` to include them. Orphan removal in particular
 is destructive and should be reviewed first.
 """
 function fix!(
-    store::Store,
-    issues::AbstractVector{StoreIssue};
-    kinds=(:incomplete_part, :pdf_missing),
+    store::Store, issues::AbstractVector{StoreIssue}; kinds=(:incomplete_part, :pdf_missing)
 )
     n = 0
     for iss in issues

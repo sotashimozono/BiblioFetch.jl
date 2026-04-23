@@ -10,9 +10,7 @@ function _seed_ok!(store, key::String, bytes::Vector{UInt8}; group="", hash::Boo
     open(p, "w") do io
         write(io, bytes)
     end
-    md = Dict{String,Any}(
-        "key" => key, "status" => "ok", "group" => group, "pdf_path" => p,
-    )
+    md = Dict{String,Any}("key" => key, "status" => "ok", "group" => group, "pdf_path" => p)
     hash && (md["sha256"] = bytes2hex(sha256(bytes)))
     BiblioFetch.write_metadata!(store, key, md)
     return p
@@ -43,7 +41,10 @@ end
         store = BiblioFetch.open_store(root)
         # Drop a PDF directly into the root that no metadata knows about
         orphan = joinpath(root, "stranger.pdf")
-        open(orphan, "w") do io; write(io, "%PDF-1.5 fake"); end
+        open(orphan, "w") do io
+            ;
+            write(io, "%PDF-1.5 fake");
+        end
         issues = doctor(store)
         @test length(issues) == 1
         @test issues[1].kind === :orphan_pdf
@@ -56,7 +57,10 @@ end
     mktempdir() do root
         store = BiblioFetch.open_store(root)
         part = joinpath(root, "interrupted.pdf.part")
-        open(part, "w") do io; write(io, "partial"); end
+        open(part, "w") do io
+            ;
+            write(io, "partial");
+        end
         issues = doctor(store)
         @test length(issues) == 1
         @test issues[1].kind === :incomplete_part
@@ -69,7 +73,10 @@ end
         store = BiblioFetch.open_store(root)
         p = _seed_ok!(store, "10.1234/swapped", rand(UInt8, 2048); hash=true)
         # Replace the file — sha256 in metadata now stale
-        open(p, "w") do io; write(io, rand(UInt8, 4096)); end
+        open(p, "w") do io
+            ;
+            write(io, rand(UInt8, 4096));
+        end
         issues = doctor(store)
         @test length(issues) == 1
         @test issues[1].kind === :sha_mismatch
@@ -101,8 +108,14 @@ end
         store = BiblioFetch.open_store(root)
         a = joinpath(root, "a.pdf.part")
         b = joinpath(root, "b.pdf.part")
-        open(a, "w") do io; write(io, "x"); end
-        open(b, "w") do io; write(io, "y"); end
+        open(a, "w") do io
+            ;
+            write(io, "x");
+        end
+        open(b, "w") do io
+            ;
+            write(io, "y");
+        end
         issues = doctor(store)
         @test length(issues) == 2
         n = BiblioFetch.fix!(store, issues)
@@ -130,7 +143,10 @@ end
     mktempdir() do root
         store = BiblioFetch.open_store(root)
         orphan = joinpath(root, "stranger.pdf")
-        open(orphan, "w") do io; write(io, "%PDF-fake"); end
+        open(orphan, "w") do io
+            ;
+            write(io, "%PDF-fake");
+        end
         issues = doctor(store)
         @test any(i -> i.kind === :orphan_pdf, issues)
 
@@ -149,7 +165,10 @@ end
         store = BiblioFetch.open_store(root)
         p = _seed_ok!(store, "10.1234/swap", rand(UInt8, 2048); hash=true)
         new_bytes = rand(UInt8, 4096)
-        open(p, "w") do io; write(io, new_bytes); end
+        open(p, "w") do io
+            ;
+            write(io, new_bytes);
+        end
         issues = doctor(store)
         @test any(i -> i.kind === :sha_mismatch, issues)
 
