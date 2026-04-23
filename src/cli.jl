@@ -13,6 +13,7 @@ Usage:
   bibliofetch sync [--force] [--quiet]    Fetch pending/failed entries; --force re-downloads even ok+pdf entries
   bibliofetch fetch <ref> [--force]       Fetch one reference; --force re-downloads even if the PDF is cached
   bibliofetch list [--all]                List global store entries
+  bibliofetch search <q> [--field f]…     Substring-search title/authors/abstract/journal/key
   bibliofetch info <ref> [--raw]          Show stored metadata (pretty; --raw for TOML dump)
   bibliofetch help                        Show this message
 
@@ -290,6 +291,54 @@ function _format_info_entry(md::AbstractDict; now_dt::Dates.DateTime=Dates.now()
     return String(take!(io))
 end
 
+function _cmd_search(args)
+    isempty(args) && (println(stderr, "search: need a query"); return 2)
+    # parse flags
+    q_parts = String[]
+    fields = Symbol[]
+    group = ""
+    status = ""
+    case_sensitive = false
+    i = 1
+    while i <= length(args)
+        a = args[i]
+        if a == "--field" && i < length(args)
+            push!(fields, Symbol(args[i + 1]));
+            i += 2
+        elseif a == "--group" && i < length(args)
+            group = args[i + 1];
+            i += 2
+        elseif a == "--status" && i < length(args)
+            status = args[i + 1];
+            i += 2
+        elseif a == "--case-sensitive" || a == "-c"
+            case_sensitive = true;
+            i += 1
+        elseif startswith(a, "--")
+            println(stderr, "search: unknown flag $(a)");
+            return 2
+        else
+            push!(q_parts, a);
+            i += 1
+        end
+    end
+    query = join(q_parts, " ")
+    fields_kw = isempty(fields) ? BiblioFetch._SEARCHABLE_FIELDS : Tuple(fields)
+
+    rt = detect_environment(; probe=false)
+    store = open_store(rt.store_root)
+    matches = search_entries(
+        store,
+        query;
+        fields=fields_kw,
+        group=group,
+        status=status,
+        case_sensitive=case_sensitive,
+    )
+    show(stdout, MIME("text/plain"), matches)
+    return isempty(matches) ? 1 : 0
+end
+
 function _cmd_info(args)
     isempty(args) && (println(stderr, "info: need a reference"); return 2)
     raw = "--raw" in args
@@ -461,6 +510,8 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
             _cmd_fetch(rest)
         elseif cmd == "list"
             _cmd_list(rest)
+        elseif cmd == "search"
+            _cmd_search(rest)
         elseif cmd == "info"
             _cmd_info(rest)
         else

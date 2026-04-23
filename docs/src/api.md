@@ -61,6 +61,13 @@ find_duplicates
 resolve_duplicates!
 ```
 
+## Search
+
+```@docs
+search_entries
+SearchMatch
+```
+
 ## External metadata sources
 
 ```@docs
