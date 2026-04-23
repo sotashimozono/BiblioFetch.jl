@@ -294,8 +294,10 @@ function fetch_paper!(
     # 5) Elsevier TDM — 10.1016/* DOIs routed through api.elsevier.com. Same
     # gating principle as APS: only fires for Elsevier DOIs and only when an
     # API key is configured (else every attempt would 401 and burn quota).
-    if want(:elsevier) && doi !== nothing && is_elsevier_doi(doi) &&
-       !isempty(elsevier_tdm_auth_headers())
+    if want(:elsevier) &&
+        doi !== nothing &&
+        is_elsevier_doi(doi) &&
+        !isempty(elsevier_tdm_auth_headers())
         push!(candidates, (:elsevier, elsevier_tdm_url(doi)))
     end
 

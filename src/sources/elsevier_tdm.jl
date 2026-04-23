@@ -26,9 +26,7 @@ Build the api.elsevier.com URL that returns the article PDF when combined
 with `Accept: application/pdf` and the API-key headers from
 [`elsevier_tdm_auth_headers`](@ref).
 """
-function elsevier_tdm_url(
-    doi::AbstractString; base_url::AbstractString=ELSEVIER_TDM_URL
-)
+function elsevier_tdm_url(doi::AbstractString; base_url::AbstractString=ELSEVIER_TDM_URL)
     # DOI slashes are part of the path; escape only characters that don't
     # belong in a URL.
     safe_doi = replace(String(doi), r"[^A-Za-z0-9./%_\-]" => s -> URIs.escapeuri(s))

@@ -46,7 +46,7 @@ end
 
 @testset "elsevier_tdm_url: base_url override for testing" begin
     u = BiblioFetch.elsevier_tdm_url(
-        "10.1016/j.aop.2005.10.005"; base_url="https://127.0.0.1/",
+        "10.1016/j.aop.2005.10.005"; base_url="https://127.0.0.1/"
     )
     @test startswith(u, "https://127.0.0.1/10.1016/")
 end
@@ -60,26 +60,17 @@ end
 
 @testset "elsevier_tdm_auth_headers: API key + insttoken" begin
     withenv("ELSEVIER_API_KEY" => nothing, "ELSEVIER_INSTTOKEN" => nothing) do
-        h = BiblioFetch.elsevier_tdm_auth_headers(;
-            api_key="EXPLICIT", insttoken="ITOK",
-        )
-        @test h == Pair{String,String}[
-            "X-ELS-APIKey" => "EXPLICIT",
-            "X-ELS-Insttoken" => "ITOK",
-        ]
+        h = BiblioFetch.elsevier_tdm_auth_headers(; api_key="EXPLICIT", insttoken="ITOK")
+        @test h ==
+            Pair{String,String}["X-ELS-APIKey" => "EXPLICIT", "X-ELS-Insttoken" => "ITOK"]
     end
 end
 
 @testset "elsevier_tdm_auth_headers: env fallback for both" begin
-    withenv(
-        "ELSEVIER_API_KEY" => "ENVKEY",
-        "ELSEVIER_INSTTOKEN" => "ENVTOK",
-    ) do
+    withenv("ELSEVIER_API_KEY" => "ENVKEY", "ELSEVIER_INSTTOKEN" => "ENVTOK") do
         h = BiblioFetch.elsevier_tdm_auth_headers()
-        @test h == Pair{String,String}[
-            "X-ELS-APIKey" => "ENVKEY",
-            "X-ELS-Insttoken" => "ENVTOK",
-        ]
+        @test h ==
+            Pair{String,String}["X-ELS-APIKey" => "ENVKEY", "X-ELS-Insttoken" => "ENVTOK"]
     end
 end
 
@@ -93,14 +84,9 @@ end
 end
 
 @testset "_source_extra_headers: :elsevier → X-ELS headers when keyed" begin
-    withenv(
-        "ELSEVIER_API_KEY" => "K",
-        "ELSEVIER_INSTTOKEN" => "T",
-    ) do
-        @test BiblioFetch._source_extra_headers(:elsevier) == Pair{String,String}[
-            "X-ELS-APIKey" => "K",
-            "X-ELS-Insttoken" => "T",
-        ]
+    withenv("ELSEVIER_API_KEY" => "K", "ELSEVIER_INSTTOKEN" => "T") do
+        @test BiblioFetch._source_extra_headers(:elsevier) ==
+            Pair{String,String}["X-ELS-APIKey" => "K", "X-ELS-Insttoken" => "T"]
     end
     withenv("ELSEVIER_API_KEY" => nothing, "ELSEVIER_INSTTOKEN" => nothing) do
         @test isempty(BiblioFetch._source_extra_headers(:elsevier))
@@ -122,10 +108,10 @@ end
         mktempdir() do dir
             dest = joinpath(dir, "out.pdf")
             r = BiblioFetch._http_download_pdf(
-                base * "whatever", dest;
+                base * "whatever",
+                dest;
                 extra_headers=Pair{String,String}[
-                    "X-ELS-APIKey" => "MYKEY",
-                    "X-ELS-Insttoken" => "MYTOK",
+                    "X-ELS-APIKey" => "MYKEY", "X-ELS-Insttoken" => "MYTOK"
                 ],
                 timeout=5,
             )
@@ -140,14 +126,17 @@ end
     mktempdir() do dir
         job_path = joinpath(dir, "job.toml")
         open(job_path, "w") do io
-            write(io, """
-                [folder]
-                target = "$(dir)/papers"
-                [fetch]
-                sources = ["unpaywall", "elsevier"]
-                [doi]
-                list = ["10.1016/j.physletb.2023.01.001"]
-            """)
+            write(
+                io,
+                """
+          [folder]
+          target = "$(dir)/papers"
+          [fetch]
+          sources = ["unpaywall", "elsevier"]
+          [doi]
+          list = ["10.1016/j.physletb.2023.01.001"]
+      """,
+            )
         end
         job = BiblioFetch.load_job(job_path)
         @test :elsevier in job.sources
@@ -158,7 +147,7 @@ end
     # Elsevier DOI + key → gating passes
     withenv("ELSEVIER_API_KEY" => "K") do
         @test BiblioFetch.is_elsevier_doi("10.1016/j.physletb.2023.01.001") &&
-              !isempty(BiblioFetch.elsevier_tdm_auth_headers())
+            !isempty(BiblioFetch.elsevier_tdm_auth_headers())
     end
     # Non-Elsevier DOI + key → gating blocks
     withenv("ELSEVIER_API_KEY" => "K") do
