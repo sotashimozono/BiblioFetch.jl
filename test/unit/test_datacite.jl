@@ -38,7 +38,7 @@ end
         "titles" => [Dict("title" => "A Simulation Dataset")],
         "creators" => [
             Dict("givenName" => "Alice", "familyName" => "Smith"),
-            Dict("givenName" => "Bob",   "familyName" => "Jones"),
+            Dict("givenName" => "Bob", "familyName" => "Jones"),
         ],
         "publisher" => "Zenodo",
         "publicationYear" => 2024,
@@ -49,7 +49,7 @@ end
     @test meta["title"] == ["A Simulation Dataset"]
     @test meta["author"] == [
         Dict("given" => "Alice", "family" => "Smith"),
-        Dict("given" => "Bob",   "family" => "Jones"),
+        Dict("given" => "Bob", "family" => "Jones"),
     ]
     @test meta["container-title"] == ["Zenodo"]
     @test meta["issued"]["date-parts"] == [[2024]]
@@ -70,7 +70,7 @@ end
     meta = BiblioFetch._datacite_to_crossref_shape(attr)
     @test meta["author"] == [
         Dict("given" => "John", "family" => "Doe"),
-        Dict("given" => "",     "family" => "Mononym"),
+        Dict("given" => "", "family" => "Mononym"),
     ]
     @test meta["issued"]["date-parts"] == [[2020]]
 end
@@ -129,8 +129,8 @@ end
 @testset "datacite_lookup: 404 / garbage → empty dict" begin
     _with_mock_dc(_dc_handler) do base
         @test BiblioFetch.datacite_lookup("10.5281/zenodo.404"; base_url=base) ==
-              Dict{String,Any}()
+            Dict{String,Any}()
         @test BiblioFetch.datacite_lookup("10.5281/zenodo.garbage"; base_url=base) ==
-              Dict{String,Any}()
+            Dict{String,Any}()
     end
 end
