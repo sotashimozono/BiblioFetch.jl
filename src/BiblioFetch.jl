@@ -25,6 +25,7 @@ include("core/store.jl")
 include("core/fetch.jl")
 include("core/dedup.jl")          # depends on store + sha256 from fetch
 include("core/search.jl")         # depends on store + refs (_normalize_group)
+include("core/stats.jl")          # depends on store + METADATA_DIRNAME
 include("core/status.jl")         # depends on env (Runtime) + sources (USER_AGENT)
 include("io/bibtex.jl")
 include("io/bibtex_import.jl")    # inverse direction: read existing .bib into store
@@ -41,6 +42,7 @@ export bibtex_entry, write_bibtex
 export BibEntry, parse_bibtex, bibentry_to_ref, import_bib!
 export find_duplicates, resolve_duplicates!
 export search_entries, SearchMatch
+export stats, StoreStats
 export datacite_lookup
 export s2_lookup
 export aps_tdm_url, is_aps_doi

@@ -15,6 +15,7 @@ Usage:
   bibliofetch fetch <ref> [--force]       Fetch one reference; --force re-downloads even if the PDF is cached
   bibliofetch list [--all]                List global store entries
   bibliofetch search <q> [--field f]…     Substring-search title/authors/abstract/journal/key
+  bibliofetch stats [<dir>]               Summary: counts by status/source/group + PDF size
   bibliofetch info <ref> [--raw]          Show stored metadata (pretty; --raw for TOML dump)
   bibliofetch help                        Show this message
 
@@ -333,6 +334,73 @@ function _format_info_entry(md::AbstractDict; now_dt::Dates.DateTime=Dates.now()
     return String(take!(io))
 end
 
+function Base.show(io::IO, ::MIME"text/plain", st::StoreStats)
+    println(io, "BiblioFetch store statistics")
+    println(io, "  root    : ", st.root)
+    println(io, "  entries : ", st.total)
+
+    function _section(title, d; label_fn=identity)
+        isempty(d) && return nothing
+        println(io, "\n  ", title)
+        w = maximum(length(label_fn(k)) for k in keys(d))
+        for k in sort!(collect(keys(d)))
+            @printf(io, "    %-*s : %d\n", w, label_fn(k), d[k])
+        end
+    end
+
+    _section("by status:", st.by_status)
+    _section("by source (among ok entries):", st.by_source)
+    _section("by group:", st.by_group; label_fn=(k -> isempty(k) ? "(root)" : k))
+
+    if st.graph_expanded > 0 || st.duplicate_resolved > 0 || st.pdf_missing > 0
+        println(io)
+        st.graph_expanded > 0 && println(
+            io,
+            "  graph-expanded    : ",
+            st.graph_expanded,
+            "  (queued by citation hops, depth > 0)",
+        )
+        st.duplicate_resolved > 0 && println(
+            io,
+            "  duplicates linked : ",
+            st.duplicate_resolved,
+            "  (resolved via `dedup --apply`)",
+        )
+        st.pdf_missing > 0 && println(
+            io,
+            "  pdf_path missing  : ",
+            st.pdf_missing,
+            "  (metadata points at a file that's gone)",
+        )
+    end
+
+    println(
+        io, "\n  PDFs    : ", st.pdf_count, " files, ", _humanize_bytes(st.pdf_total_bytes)
+    )
+
+    if st.oldest_fetch !== nothing
+        s = string(st.oldest_fetch)
+        println(io, "  oldest  : ", s, "  (", _humanize_age(s), ")")
+    end
+    if st.newest_fetch !== nothing
+        s = string(st.newest_fetch)
+        println(io, "  newest  : ", s, "  (", _humanize_age(s), ")")
+    end
+end
+
+function _cmd_stats(args)
+    rt = detect_environment(; probe=false)
+    dir = nothing
+    for a in args
+        startswith(a, "--") || (dir = a)
+    end
+    store = open_store(dir === nothing ? rt.store_root : dir)
+    st = stats(store)
+    show(stdout, MIME("text/plain"), st)
+    println()
+    return 0
+end
+
 function _cmd_search(args)
     isempty(args) && (println(stderr, "search: need a query"); return 2)
     # parse flags
@@ -594,6 +662,8 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
             _cmd_list(rest)
         elseif cmd == "search"
             _cmd_search(rest)
+        elseif cmd == "stats"
+            _cmd_stats(rest)
         elseif cmd == "info"
             _cmd_info(rest)
         else
