@@ -10,12 +10,16 @@ using SHA
 using TOML
 using URIs
 
-include("env.jl")
-include("sources.jl")
-include("store.jl")
-include("fetch.jl")
-include("bibtex.jl")
-include("job.jl")
+include("core/env.jl")
+include("sources/http.jl")        # retry helper + URL consts + _to_plain
+include("sources/refs.jl")        # DOI/arXiv parsing + ref→URL helpers
+include("sources/crossref.jl")
+include("sources/unpaywall.jl")
+include("sources/arxiv.jl")
+include("core/store.jl")
+include("core/fetch.jl")
+include("io/bibtex.jl")
+include("core/job.jl")            # depends on fetch + store + bibtex
 include("cli.jl")
 
 export detect_environment, load_config, effective_runtime
