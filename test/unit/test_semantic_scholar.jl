@@ -73,6 +73,41 @@ end
     @test !haskey(out, "oa_pdf_url")
 end
 
+@testset "_extract_s2_fields: references (DOI + arXiv mix)" begin
+    obj = Dict{String,Any}(
+        "paperId" => "p",
+        "title" => "With references",
+        "references" => [
+            Dict("externalIds" => Dict("DOI" => "10.1103/PhysRevB.99.214433")),
+            Dict("externalIds" => Dict("ArXiv" => "1706.03762")),
+            Dict("externalIds" => Dict(), "title" => "unknown ref"),
+            Dict("externalIds" => Dict("DOI" => "  10.1038/NATURE12345  ")),
+            Dict("externalIds" => Dict("DOI" => "")),       # empty → skip
+            "not a dict",                                   # malformed → skip
+        ],
+    )
+    out = BiblioFetch._extract_s2_fields(obj)
+    @test out["references"] ==
+        ["10.1103/physrevb.99.214433", "arxiv:1706.03762", "10.1038/nature12345"]
+end
+
+@testset "_extract_s2_fields: DOI wins over ArXiv when both present in one ref" begin
+    obj = Dict{String,Any}(
+        "title" => "X",
+        "references" => [
+            Dict("externalIds" =>
+                    Dict("DOI" => "10.1234/primary", "ArXiv" => "1234.5678")),
+        ],
+    )
+    out = BiblioFetch._extract_s2_fields(obj)
+    @test out["references"] == ["10.1234/primary"]
+end
+
+@testset "_extract_s2_fields: absent references field → no references key" begin
+    out = BiblioFetch._extract_s2_fields(Dict{String,Any}("title" => "Lone"))
+    @test !haskey(out, "references")
+end
+
 @testset "_extract_s2_fields: year as string, missing abstract, null journal" begin
     obj = Dict{String,Any}(
         "title" => "X",

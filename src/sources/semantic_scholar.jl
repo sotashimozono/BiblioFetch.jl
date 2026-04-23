@@ -17,7 +17,7 @@
 # with `parallel > 1` on an unauthenticated account will still be slow.
 
 # Field selector — asking for everything would be wasteful.
-const _S2_FIELDS = "title,authors,year,abstract,openAccessPdf,journal,externalIds"
+const _S2_FIELDS = "title,authors,year,abstract,openAccessPdf,journal,externalIds,references.externalIds"
 
 # Translate a normalize_key'd key into S2's identifier format.
 # S2 accepts: DOI:10.xxx / ARXIV:1234.5678 / MAG:... / ACL:... / URL:...
@@ -132,6 +132,30 @@ function _extract_s2_fields(obj::AbstractDict)
     if oa isa AbstractDict
         u = String(get(oa, "url", ""))
         isempty(u) || (out["oa_pdf_url"] = u)
+    end
+
+    # References with DOI / arXiv id — complements Crossref's `reference`
+    # field. S2 has these for arXiv-only preprints and for publishers whose
+    # Crossref records don't include reference lists.
+    refs_raw = get(obj, "references", nothing)
+    if refs_raw isa AbstractVector
+        refs = String[]
+        for r in refs_raw
+            r isa AbstractDict || continue
+            ext = get(r, "externalIds", nothing)
+            ext isa AbstractDict || continue
+            doi = get(ext, "DOI", nothing)
+            if doi !== nothing
+                s = strip(String(doi))
+                isempty(s) || (push!(refs, lowercase(s)); continue)
+            end
+            ax = get(ext, "ArXiv", nothing)
+            if ax !== nothing
+                s = strip(String(ax))
+                isempty(s) || push!(refs, "arxiv:" * lowercase(s))
+            end
+        end
+        isempty(refs) || (out["references"] = refs)
     end
 
     pid = String(get(obj, "paperId", ""))
