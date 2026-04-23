@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# BiblioFetch CLI launcher.
+# Locates the package root relative to this script and runs cli_main on ARGS.
+
+set -euo pipefail
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+PKG_ROOT="$(cd -- "$SCRIPT_DIR/.." &>/dev/null && pwd)"
+
+exec julia --project="$PKG_ROOT" --startup-file=no --color=yes -e '
+using BiblioFetch
+exit(BiblioFetch.cli_main(ARGS))
+' -- "$@"

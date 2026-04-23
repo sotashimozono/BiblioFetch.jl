@@ -1,0 +1,231 @@
+"""
+    AttemptLog
+
+One source attempt during a fetch — useful for diagnosing why a key failed.
+"""
+struct AttemptLog
+    source      :: Symbol                       # :unpaywall | :arxiv | :direct
+    url         :: String
+    ok          :: Bool
+    http_status :: Union{Int,Nothing}
+    error       :: Union{String,Nothing}
+    duration_s  :: Float64
+end
+
+"""
+    FetchResult
+
+Outcome of `fetch_paper!` on a single reference.
+"""
+struct FetchResult
+    key      :: String
+    ok       :: Bool
+    source   :: Symbol                          # :unpaywall | :arxiv | :direct | :cached | :none
+    pdf_path :: Union{String,Nothing}
+    error    :: Union{String,Nothing}
+    attempts :: Vector{AttemptLog}
+end
+
+const DEFAULT_SOURCES = (:unpaywall, :arxiv, :direct)
+
+# ---- PDF download helpers ----
+
+function _looks_like_pdf(path::AbstractString)
+    filesize(path) > 1024 || return false
+    open(path, "r") do io
+        header = read(io, 5)
+        return length(header) >= 4 && header[1:4] == UInt8[0x25, 0x50, 0x44, 0x46]  # "%PDF"
+    end
+end
+
+# HTTP.jl-based downloader. Returns a NamedTuple with enough info for AttemptLog.
+function _http_download_pdf(url::AbstractString, dest::AbstractString;
+                            proxy = nothing, timeout = 60)
+    mkpath(dirname(dest))
+    tmp = dest * ".part"
+    status_code::Union{Int,Nothing} = nothing
+    try
+        kw = (; headers = ["User-Agent" => USER_AGENT, "Accept" => "application/pdf,*/*"],
+              connect_timeout = timeout, readtimeout = timeout * 2,
+              redirect = true, redirect_limit = 10,
+              status_exception = false, retry = false)
+        resp = proxy === nothing ? HTTP.get(url; kw...) : HTTP.get(url; proxy = proxy, kw...)
+        status_code = Int(resp.status)
+        if !(200 <= resp.status < 300)
+            return (ok = false, http_status = status_code, error = "http status $(resp.status)")
+        end
+        open(tmp, "w") do io; write(io, resp.body); end
+    catch e
+        isfile(tmp) && rm(tmp; force = true)
+        return (ok = false, http_status = status_code, error = "http: " * sprint(showerror, e))
+    end
+    if !_looks_like_pdf(tmp)
+        rm(tmp; force = true)
+        return (ok = false, http_status = status_code, error = "not a PDF (got HTML/landing)")
+    end
+    mv(tmp, dest; force = true)
+    return (ok = true, http_status = status_code, error = nothing)
+end
+
+# ---- orchestration ----
+
+"""
+    fetch_paper!(store, key; rt, group = "", force = false,
+                 sources = DEFAULT_SOURCES, verbose = true) -> FetchResult
+
+Resolve `key` (DOI or `arxiv:…`) and try the configured `sources` in order:
+
+  1. `:unpaywall` → OA PDF (requires `rt.email`)
+  2. `:arxiv`     → arXiv preprint (always OA)
+  3. `:direct`    → `doi.org/<doi>` through proxy (only when proxy is reachable)
+
+The PDF is stored at `pdf_path(store, key; group)` — i.e. in `store.root/<group>/`.
+Per-attempt diagnostics are recorded in the returned `FetchResult.attempts`.
+"""
+function fetch_paper!(store::Store, key::AbstractString;
+                      rt::Runtime = detect_environment(probe = false),
+                      group::AbstractString = "",
+                      force::Bool = false,
+                      sources = DEFAULT_SOURCES,
+                      verbose::Bool = true)
+    key = normalize_key(key)
+    group = _normalize_group(group)
+    md = read_metadata(store, key); isempty(md) && (md["key"] = key)
+    md["group"] = group
+    dest = pdf_path(store, key; group = group)
+
+    attempts = AttemptLog[]
+
+    if !force && has_pdf(store, key; group = group)
+        md["status"]   = "ok"
+        md["pdf_path"] = dest
+        write_metadata!(store, key, md)
+        return FetchResult(key, true, :cached, dest, nothing, attempts)
+    end
+
+    doi   = is_doi(key) ? key : nothing
+    arxiv = startswith(key, "arxiv:") ? key[7:end] : nothing
+
+    meta = doi === nothing ? Dict{String,Any}() : crossref_lookup(doi; proxy = rt.proxy)
+    if !isempty(meta)
+        md["title"]   = get(meta, "title", [get(md, "title", "")])[1] |> string
+        md["journal"] = string(get(get(meta, "container-title", [""]), 1, ""))
+        md["year"]    = let dp = get(get(meta, "issued", Dict()), "date-parts", [[nothing]])
+            length(dp) >= 1 && length(dp[1]) >= 1 ? dp[1][1] : nothing
+        end
+        authors = get(meta, "author", [])
+        md["authors"] = [string(get(a, "given", "")) * " " * string(get(a, "family", ""))
+                         for a in authors]
+        if arxiv === nothing
+            ax = arxiv_id_from_crossref(meta)
+            ax !== nothing && (md["arxiv_id"] = ax; arxiv = ax)
+        end
+    end
+
+    candidates = Tuple{Symbol,String}[]  # (source, url)
+    want(s) = s in sources
+
+    # 1) Unpaywall
+    if want(:unpaywall) && doi !== nothing && rt.email !== nothing
+        verbose && @info "→ Unpaywall lookup" doi
+        pdf, upmeta = unpaywall_lookup(doi; email = rt.email, proxy = rt.proxy)
+        !isempty(upmeta) && (md["is_oa"] = get(upmeta, "is_oa", false))
+        pdf !== nothing && push!(candidates, (:unpaywall, pdf))
+    end
+
+    # 2) arXiv
+    if want(:arxiv)
+        if arxiv !== nothing
+            push!(candidates, (:arxiv, arxiv_pdf_url(arxiv)))
+        elseif doi !== nothing && !isempty(get(md, "title", ""))
+            verbose && @info "→ arXiv title search fallback" title=md["title"]
+            ax = arxiv_search_by_title(string(md["title"]);
+                                        authors = String.(get(md, "authors", String[])),
+                                        proxy = rt.proxy)
+            if ax !== nothing
+                md["arxiv_id"] = ax
+                push!(candidates, (:arxiv, arxiv_pdf_url(ax)))
+            end
+        end
+    end
+
+    # 3) direct landing — only meaningful when proxy is reachable
+    if want(:direct) && doi !== nothing && rt.proxy !== nothing && rt.reachable !== false
+        push!(candidates, (:direct, doi_landing_url(doi)))
+    end
+
+    used_source = :none
+    for (src, url) in candidates
+        verbose && @info "   try $src" url
+        t0 = time()
+        r = _http_download_pdf(url, dest; proxy = rt.proxy)
+        dt = time() - t0
+        push!(attempts, AttemptLog(src, url, r.ok, r.http_status, r.error, dt))
+        if r.ok
+            used_source = src
+            break
+        else
+            verbose && @info "     failed: $(r.error)"
+        end
+    end
+
+    last_err = used_source === :none && !isempty(attempts) ? attempts[end].error : nothing
+
+    if used_source === :none
+        md["status"]          = "failed"
+        md["error"]           = isempty(candidates) ? "no candidate PDF URL" :
+                                  (last_err === nothing ? "unknown" : last_err)
+        md["last_attempt_at"] = string(Dates.now())
+        md["attempts"]        = _attempts_to_dict.(attempts)
+        write_metadata!(store, key, md)
+        return FetchResult(key, false, :none, nothing, md["error"], attempts)
+    else
+        md["status"]     = "ok"
+        md["source"]     = String(used_source)
+        md["pdf_path"]   = dest
+        md["fetched_at"] = string(Dates.now())
+        md["error"]      = ""
+        md["attempts"]   = _attempts_to_dict.(attempts)
+        write_metadata!(store, key, md)
+        return FetchResult(key, true, used_source, dest, nothing, attempts)
+    end
+end
+
+function _attempts_to_dict(a::AttemptLog)
+    d = Dict{String,Any}(
+        "source"     => String(a.source),
+        "url"        => a.url,
+        "ok"         => a.ok,
+        "duration_s" => round(a.duration_s; digits = 3),
+    )
+    a.http_status === nothing || (d["http_status"] = a.http_status)
+    a.error === nothing || (d["error"] = a.error)
+    return d
+end
+
+"""
+    sync!(store; rt = detect_environment(), only_pending = true) -> Vector{FetchResult}
+
+Walk the store's metadata directory and fetch all pending (or failed) entries,
+preserving each entry's stored `group`.
+"""
+function sync!(store::Store;
+               rt::Runtime = detect_environment(),
+               only_pending::Bool = true,
+               verbose::Bool = true)
+    results = FetchResult[]
+    for safekey in list_entries(store)
+        p = joinpath(store.root, METADATA_DIRNAME, safekey * ".toml")
+        md = TOML.parsefile(p)
+        key = get(md, "key", "")
+        isempty(key) && continue
+        status = get(md, "status", "pending")
+        group  = String(get(md, "group", ""))
+        if only_pending && status == "ok" && has_pdf(store, key; group = group)
+            continue
+        end
+        verbose && @info "syncing" key status group
+        push!(results, fetch_paper!(store, key; rt = rt, group = group, verbose = verbose))
+    end
+    return results
+end
