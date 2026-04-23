@@ -84,6 +84,9 @@ s2_lookup
 ```@docs
 aps_tdm_url
 is_aps_doi
+elsevier_tdm_url
+is_elsevier_doi
+elsevier_tdm_auth_headers
 ```
 
 ## Network status

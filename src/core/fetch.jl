@@ -44,7 +44,7 @@ const DEFAULT_SOURCES = (:unpaywall, :arxiv, :direct)
 # `:aps` = APS Harvest TDM API (needs Bearer token in APS_API_KEY).
 # Like `:s2` it's opt-in; users who have institutional APS access turn it on
 # in their job's `[fetch].sources`.
-const KNOWN_SOURCES = (:unpaywall, :arxiv, :direct, :s2, :aps)
+const KNOWN_SOURCES = (:unpaywall, :arxiv, :direct, :s2, :aps, :elsevier)
 
 # Compute a hex-encoded SHA-256 of a file's byte stream. Used to dedup PDFs
 # that arrive via multiple DOI aliases (arxiv preprint DOI vs journal DOI).
@@ -71,6 +71,8 @@ function _source_extra_headers(source::Symbol)
     if source === :aps
         h = aps_tdm_auth_header()
         return h === nothing ? Pair{String,String}[] : Pair{String,String}[h]
+    elseif source === :elsevier
+        return elsevier_tdm_auth_headers()
     end
     return Pair{String,String}[]
 end
@@ -287,6 +289,14 @@ function fetch_paper!(
     # Only sensible for 10.1103/* DOIs and only when APS_API_KEY is configured.
     if want(:aps) && doi !== nothing && is_aps_doi(doi) && aps_tdm_auth_header() !== nothing
         push!(candidates, (:aps, aps_tdm_url(doi)))
+    end
+
+    # 5) Elsevier TDM — 10.1016/* DOIs routed through api.elsevier.com. Same
+    # gating principle as APS: only fires for Elsevier DOIs and only when an
+    # API key is configured (else every attempt would 401 and burn quota).
+    if want(:elsevier) && doi !== nothing && is_elsevier_doi(doi) &&
+       !isempty(elsevier_tdm_auth_headers())
+        push!(candidates, (:elsevier, elsevier_tdm_url(doi)))
     end
 
     used_source = :none
