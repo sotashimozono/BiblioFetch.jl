@@ -72,6 +72,13 @@ search_entries
 SearchMatch
 ```
 
+## Statistics
+
+```@docs
+stats
+StoreStats
+```
+
 ## External metadata sources
 
 ```@docs
