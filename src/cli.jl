@@ -3,6 +3,7 @@ BiblioFetch — bulk literature fetcher (DOI / arXiv → local PDF store)
 
 Usage:
   bibliofetch env                         Show detected runtime (hostname, proxy, mode)
+  bibliofetch status [--timeout <s>]      Probe supported APIs; report what's reachable now
   bibliofetch run <job.toml>              Execute a job TOML (groups, parallel, log)
   bibliofetch bib <dir> [--out <path>]    Export BibTeX for all ok entries in a store root
   bibliofetch dedup [<dir>] [--apply]     Report (or apply with --apply) PDF-hash duplicates
@@ -318,6 +319,27 @@ function _cmd_info(args)
     return 0
 end
 
+function _cmd_status(args)
+    timeout = 5.0
+    i = 1
+    while i <= length(args)
+        if args[i] in ("--timeout", "-t") && i < length(args)
+            tv = tryparse(Float64, args[i + 1])
+            tv === nothing || (timeout = tv)
+            i += 2
+        else
+            i += 1
+        end
+    end
+    # probe=false here: status() does its own probes in parallel; the env-probe
+    # would just duplicate that work, and under some HTTP.jl versions holding
+    # a pre-existing connection pool interferes with the @async probe batch.
+    rt = detect_environment(; probe=false)
+    ns = status(; rt=rt, timeout=timeout)
+    show(stdout, MIME("text/plain"), ns)
+    return isempty(ns.effective_sources) ? 1 : 0
+end
+
 function _cmd_watch(args)
     isempty(args) && (println(stderr, "watch: need a job TOML path"); return 2)
     path = args[1]
@@ -421,6 +443,8 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
     try
         return if cmd == "env"
             _cmd_env(rest)
+        elseif cmd == "status"
+            _cmd_status(rest)
         elseif cmd == "run"
             _cmd_run(rest)
         elseif cmd == "bib"
