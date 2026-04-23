@@ -90,12 +90,12 @@ function load_job(path::AbstractString; runtime::Union{Runtime,Nothing}=nothing)
             nothing
         else
             (
-            if isabspath(expanduser(String(b)))
-                expanduser(String(b))
-            else
-                joinpath(target, expanduser(String(b)))
-            end
-        )
+                if isabspath(expanduser(String(b)))
+                    expanduser(String(b))
+                else
+                    joinpath(target, expanduser(String(b)))
+                end
+            )
         end
     end
 
@@ -347,12 +347,12 @@ function _log_entry(logio, e::FetchEntry, dt)
             "no-candidate"
         else
             join(
-            (
-                "$(a.source)=$(a.ok ? "ok" : (a.error === nothing ? "?" : _short_err(a.error)))"
-                for a in e.attempts
-            ),
-            ", ",
-        )
+                (
+                    "$(a.source)=$(a.ok ? "ok" : (a.error === nothing ? "?" : _short_err(a.error)))"
+                    for a in e.attempts
+                ),
+                ", ",
+            )
         end
         _logln(logio, "fail  $(e.key)  group=$(isempty(e.group) ? "-" : e.group)  $(trail)")
     end
@@ -398,12 +398,12 @@ function Base.show(io::IO, ::MIME"text/plain", r::FetchJobResult)
                     "no candidate"
                 else
                     join(
-                    (
-                        "$(a.source):$(a.error === nothing ? "?" : _short_err(a.error))"
-                        for a in e.attempts
-                    ),
-                    " / ",
-                )
+                        (
+                            "$(a.source):$(a.error === nothing ? "?" : _short_err(a.error))"
+                            for a in e.attempts
+                        ),
+                        " / ",
+                    )
                 end
             end
             print(io, "      ", mark, " ", rpad(e.key, 42), " ", src, " ", detail, "\n")

@@ -27,7 +27,7 @@ end
     # No authors → fall back to sanitized key
     md3 = Dict{String,Any}("year" => 2020, "key" => "arxiv:1706.03762")
     @test BiblioFetch._bibtex_key(md3) == "arxiv170603762" * "" ||
-          startswith(BiblioFetch._bibtex_key(md3), "arxiv17060376")
+        startswith(BiblioFetch._bibtex_key(md3), "arxiv17060376")
 
     # No year → "nodate"
     md4 = Dict{String,Any}("authors" => ["Alice Brown"])
@@ -109,7 +109,8 @@ end
 
         # Three entries: two by Smith2019 (collision), one by Doe2020; one failed (skip)
         BiblioFetch.write_metadata!(
-            store, "10.1/a",
+            store,
+            "10.1/a",
             Dict(
                 "key" => "10.1/a",
                 "authors" => ["John Smith"],
@@ -120,7 +121,8 @@ end
             ),
         )
         BiblioFetch.write_metadata!(
-            store, "10.1/b",
+            store,
+            "10.1/b",
             Dict(
                 "key" => "10.1/b",
                 "authors" => ["John Smith"],
@@ -131,7 +133,8 @@ end
             ),
         )
         BiblioFetch.write_metadata!(
-            store, "arxiv:2020.0001",
+            store,
+            "arxiv:2020.0001",
             Dict(
                 "key" => "arxiv:2020.0001",
                 "authors" => ["Jane Doe"],
@@ -141,7 +144,8 @@ end
             ),
         )
         BiblioFetch.write_metadata!(
-            store, "10.1/dead",
+            store,
+            "10.1/dead",
             Dict(
                 "key" => "10.1/dead",
                 "authors" => ["Dead Author"],
@@ -156,9 +160,9 @@ end
         @test n == 3                       # failed entry skipped
         text = read(bib_path, String)
 
-        @test occursin("@article{Smith2019,",  text)
+        @test occursin("@article{Smith2019,", text)
         @test occursin("@article{Smith2019a,", text)
-        @test occursin("@misc{Doe2020,",       text)
-        @test !occursin("Not downloaded",      text)
+        @test occursin("@misc{Doe2020,", text)
+        @test !occursin("Not downloaded", text)
     end
 end

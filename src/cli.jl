@@ -152,9 +152,11 @@ function _cmd_info(args)
     store = open_store(rt.store_root)
     for r in args
         key = try
-            ; normalize_key(r);
+            ;
+            normalize_key(r);
         catch
-            ; r;
+            ;
+            r;
         end
         md = read_metadata(store, key)
         if isempty(md)
