@@ -8,16 +8,23 @@ mutable struct FetchEntry
     key::String
     group::String
     raw::String                         # as written in the TOML (for error msgs)
-    status::Symbol                         # :pending | :ok | :failed | :skipped | :duplicate
-    source::Symbol                         # :unpaywall | :arxiv | :direct | :cached | :none
+    depth::Int                          # 0 = user-listed; incremented per citation hop
+    referenced_by::String               # parent key that queued us; "" for user-listed
+    status::Symbol                      # :pending | :ok | :failed | :skipped | :duplicate
+    source::Symbol                      # :unpaywall | :arxiv | :direct | :cached | :none
     pdf_path::Union{String,Nothing}
     attempts::Vector{AttemptLog}
     fetched_at::Union{Dates.DateTime,Nothing}
     error::Union{String,Nothing}
 end
 
-function FetchEntry(key, group, raw)
-    FetchEntry(key, group, raw, :pending, :none, nothing, AttemptLog[], nothing, nothing)
+function FetchEntry(
+    key, group, raw; depth::Int=0, referenced_by::AbstractString=""
+)
+    return FetchEntry(
+        key, group, raw, depth, String(referenced_by),
+        :pending, :none, nothing, AttemptLog[], nothing, nothing,
+    )
 end
 
 """
@@ -37,6 +44,11 @@ struct FetchJob
     force::Bool
     sources::Vector{Symbol}
     strict_duplicates::Bool
+    # citation graph expansion
+    follow_references::Bool          # [graph].follow_references, default false
+    max_depth::Int                   # [graph].max_depth (hops from seed), default 1
+    max_refs_per_paper::Int          # [graph].max_refs_per_paper, default 50
+    #
     refs::Vector{FetchEntry}       # status=:pending at load
     duplicates::Vector{NTuple{3,String}} # (key, kept_group, rejected_group)
 end
@@ -131,6 +143,15 @@ function load_job(path::AbstractString; runtime::Union{Runtime,Nothing}=nothing)
 
     strict = Bool(get(fetch, "strict_duplicates", false))
 
+    # citation graph config
+    graphsec = get(cfg, "graph", Dict{String,Any}())
+    follow_references = Bool(get(graphsec, "follow_references", false))
+    max_depth = Int(get(graphsec, "max_depth", 1))
+    max_refs_per_paper = Int(get(graphsec, "max_refs_per_paper", 50))
+    max_depth < 0 && throw(ArgumentError("[graph].max_depth must be >= 0"))
+    max_refs_per_paper < 1 &&
+        throw(ArgumentError("[graph].max_refs_per_paper must be >= 1"))
+
     # ---- flatten refs ----
     raw_entries = _flatten_doi_groups(doisec, "")   # Vector{Tuple{String,String}} (raw, group)
 
@@ -177,6 +198,9 @@ function load_job(path::AbstractString; runtime::Union{Runtime,Nothing}=nothing)
         force,
         sources,
         strict,
+        follow_references,
+        max_depth,
+        max_refs_per_paper,
         refs,
         dups,
     )
@@ -251,11 +275,29 @@ function run(job::FetchJob; verbose::Bool=true, runtime::Union{Runtime,Nothing}=
 
     t0 = time()
     entries = job.refs
-    if job.parallel > 1
-        _run_parallel!(entries, store, rt_job, job, logio, verbose)
-    else
-        _run_sequential!(entries, store, rt_job, job, logio, verbose)
+    _run_batch!(entries, store, rt_job, job, logio, verbose)
+
+    # Citation-graph expansion: after the seed layer completes, read each
+    # successfully-fetched entry's recorded `referenced_dois` and queue any
+    # previously-unseen ones as depth-d+1 entries. Each hop is a fresh fetch
+    # round, so the expansion respects `parallel`, `force`, and `sources`.
+    if job.follow_references && job.max_depth >= 1
+        seen_keys = Set(e.key for e in entries)
+        for d in 0:(job.max_depth - 1)
+            new_entries = _collect_references(store, entries, seen_keys, d, job)
+            isempty(new_entries) && break
+            _logln(
+                logio,
+                "expand  depth=$(d + 1)  new_refs=$(length(new_entries))  from_parents=$(count(e -> e.depth == d && e.status === :ok, entries))",
+            )
+            _run_batch!(new_entries, store, rt_job, job, logio, verbose)
+            append!(entries, new_entries)
+            for e in new_entries
+                push!(seen_keys, e.key)
+            end
+        end
     end
+
     elapsed = time() - t0
 
     n_ok = count(e -> e.status === :ok, entries)
@@ -272,6 +314,47 @@ function run(job::FetchJob; verbose::Bool=true, runtime::Union{Runtime,Nothing}=
     close(logio)
 
     return FetchJobResult(job, entries, elapsed)
+end
+
+function _run_batch!(entries, store, rt_job, job, logio, verbose)
+    if job.parallel > 1
+        _run_parallel!(entries, store, rt_job, job, logio, verbose)
+    else
+        _run_sequential!(entries, store, rt_job, job, logio, verbose)
+    end
+end
+
+# Walk already-fetched entries at depth `d` and collect the next layer of
+# references that aren't already in the store/job. Children inherit their
+# parent's group and `referenced_by` points back at the parent's key.
+function _collect_references(store, entries, seen_keys, d::Int, job::FetchJob)
+    new_entries = FetchEntry[]
+    for e in entries
+        (e.depth == d && e.status === :ok) || continue
+        md = read_metadata(store, e.key)
+        refs = get(md, "referenced_dois", nothing)
+        refs isa AbstractVector || continue
+        n = 0
+        for ref_raw in refs
+            n >= job.max_refs_per_paper && break
+            key = try
+                normalize_key(String(ref_raw))
+            catch
+                continue
+            end
+            key in seen_keys && continue
+            push!(
+                new_entries,
+                FetchEntry(
+                    key, e.group, String(ref_raw);
+                    depth=d + 1, referenced_by=e.key,
+                ),
+            )
+            push!(seen_keys, key)
+            n += 1
+        end
+    end
+    return new_entries
 end
 
 function _run_sequential!(entries, store, rt, job, logio, verbose)
@@ -319,6 +402,18 @@ function _run_one!(
         FetchResult(e.key, false, :none, nothing, msg, AttemptLog[])
     end
     dt = time() - t0
+
+    # Graph-expanded entries carry depth + parent. Persist these into the
+    # per-paper TOML so `bibliofetch info` can render "referenced_by" and so
+    # a future `bibliofetch graph` command has something to traverse.
+    if e.depth > 0 || !isempty(e.referenced_by)
+        md = read_metadata(store, e.key)
+        if !isempty(md)
+            md["depth"] = e.depth
+            md["referenced_by"] = e.referenced_by
+            write_metadata!(store, e.key, md)
+        end
+    end
 
     e.status = res.ok ? (res.source === :cached ? :ok : :ok) : :failed
     e.source = res.source
