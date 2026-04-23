@@ -58,6 +58,13 @@ import_bib!
 BibEntry
 ```
 
+## Citation graph visualization
+
+```@docs
+to_dot
+to_mermaid
+```
+
 ## Deduplication
 
 ```@docs
