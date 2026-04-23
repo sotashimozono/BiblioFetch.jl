@@ -7,6 +7,7 @@ const CROSSREF_URL = "https://api.crossref.org/works/"
 const UNPAYWALL_URL = "https://api.unpaywall.org/v2/"
 const ARXIV_API_URL = "http://export.arxiv.org/api/query"
 const DATACITE_URL = "https://api.datacite.org/dois/"
+const S2_URL = "https://api.semanticscholar.org/graph/v1/paper/"
 
 # Retry defaults. Overridable per-call on every lookup function.
 const DEFAULT_RETRY_STATUSES = (429, 502, 503, 504)

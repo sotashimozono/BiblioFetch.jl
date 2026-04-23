@@ -37,7 +37,11 @@ struct FetchResult
     attempts::Vector{AttemptLog}
 end
 
+# Sources enabled by default when a job doesn't specify `[fetch].sources`.
+# `:s2` is opt-in because its rate limits are aggressive without an API key;
+# adding it to a job is a two-keystroke job-file edit.
 const DEFAULT_SOURCES = (:unpaywall, :arxiv, :direct)
+const KNOWN_SOURCES = (:unpaywall, :arxiv, :direct, :s2)
 
 # Compute a hex-encoded SHA-256 of a file's byte stream. Used to dedup PDFs
 # that arrive via multiple DOI aliases (arxiv preprint DOI vs journal DOI).
@@ -209,6 +213,31 @@ function fetch_paper!(
         pdf, upmeta = unpaywall_lookup(doi; email=rt.email, proxy=rt.proxy)
         !isempty(upmeta) && (md["is_oa"] = get(upmeta, "is_oa", false))
         pdf !== nothing && push!(candidates, (:unpaywall, pdf))
+    end
+
+    # 1b) Semantic Scholar (opt-in; good for abstracts + an alternate OA PDF set)
+    if want(:s2) && (doi !== nothing || arxiv !== nothing)
+        verbose && @info "→ Semantic Scholar lookup" key
+        s2key = arxiv !== nothing ? "arxiv:" * String(arxiv) : String(doi)
+        s2 = s2_lookup(s2key; proxy=rt.proxy)
+        if !isempty(s2)
+            # Abstract is S2's unique contribution to the metadata record —
+            # Crossref doesn't include it.
+            isempty(String(get(s2, "abstract", ""))) ||
+                (md["abstract"] = String(s2["abstract"]))
+            # Prefer title / year / journal when we still don't have them
+            isempty(get(md, "title", "")) &&
+                haskey(s2, "title") &&
+                (md["title"] = String(s2["title"]))
+            (get(md, "year", nothing) in (nothing, "")) &&
+                haskey(s2, "year") &&
+                (md["year"] = Int(s2["year"]))
+            isempty(String(get(md, "journal", ""))) &&
+                haskey(s2, "journal") &&
+                (md["journal"] = String(s2["journal"]))
+            haskey(s2, "s2_paper_id") && (md["s2_paper_id"] = String(s2["s2_paper_id"]))
+            haskey(s2, "oa_pdf_url") && push!(candidates, (:s2, String(s2["oa_pdf_url"])))
+        end
     end
 
     # 2) arXiv

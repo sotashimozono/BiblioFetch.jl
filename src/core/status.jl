@@ -75,6 +75,11 @@ const _STATUS_PROBES = (
     ),
     (:arxiv_api, "http://export.arxiv.org/api/query?max_results=0", "arXiv API"),
     (:arxiv_pdf, "https://arxiv.org/", "arXiv PDF downloads"),
+    (
+        :s2,
+        "https://api.semanticscholar.org/graph/v1/paper/DOI:10.1234/probe",
+        "Semantic Scholar",
+    ),
     (:doi, "https://doi.org/", "publisher direct (doi.org)"),
 )
 
@@ -91,6 +96,9 @@ function _effective_sources(probes::AbstractVector{ProbeResult}, rt::Runtime)
     if reach(:doi) && (rt.proxy === nothing || reach(:proxy))
         push!(out, :direct)
     end
+    # s2: reachable means the Semantic Scholar API responded; effective even
+    # without an API key (public rate limits are slow but real).
+    reach(:s2) && push!(out, :s2)
     return out
 end
 
