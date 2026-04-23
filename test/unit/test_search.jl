@@ -6,7 +6,8 @@ using Test
 # across the three so field filters can be asserted.
 function _seed_search_fixtures(store::BiblioFetch.Store)
     BiblioFetch.write_metadata!(
-        store, "10.1103/physrevb.99.214433",
+        store,
+        "10.1103/physrevb.99.214433",
         Dict(
             "key" => "10.1103/physrevb.99.214433",
             "status" => "ok",
@@ -19,7 +20,8 @@ function _seed_search_fixtures(store::BiblioFetch.Store)
         ),
     )
     BiblioFetch.write_metadata!(
-        store, "10.21468/scipostphys.1.1.001",
+        store,
+        "10.21468/scipostphys.1.1.001",
         Dict(
             "key" => "10.21468/scipostphys.1.1.001",
             "status" => "ok",
@@ -32,7 +34,8 @@ function _seed_search_fixtures(store::BiblioFetch.Store)
         ),
     )
     BiblioFetch.write_metadata!(
-        store, "arxiv:1706.03762",
+        store,
+        "arxiv:1706.03762",
         Dict(
             "key" => "arxiv:1706.03762",
             "status" => "pending",
@@ -57,8 +60,7 @@ end
         @test "arxiv:1706.03762" ∉ keys
 
         # Case-insensitivity by default
-        @test [m.key for m in search_entries(store, "HALDANE")] ==
-              ["10.1103/physrevb.99.214433"]
+        @test [m.key for m in search_entries(store, "HALDANE")] == ["10.1103/physrevb.99.214433"]
 
         # Case-sensitive flag: matching capitalisation must be exact
         @test isempty(search_entries(store, "HALDANE"; case_sensitive=true))
@@ -111,14 +113,22 @@ end
         # Entry A matches title + abstract (2 fields)
         # Entry B matches title only (1 field)
         BiblioFetch.write_metadata!(
-            store, "10.1234/b-only-title",
-            Dict("key" => "10.1234/b-only-title", "title" => "alpha something",
-                 "abstract" => ""),
+            store,
+            "10.1234/b-only-title",
+            Dict(
+                "key" => "10.1234/b-only-title",
+                "title" => "alpha something",
+                "abstract" => "",
+            ),
         )
         BiblioFetch.write_metadata!(
-            store, "10.1234/a-both",
-            Dict("key" => "10.1234/a-both", "title" => "alpha entry",
-                 "abstract" => "some alpha keyword"),
+            store,
+            "10.1234/a-both",
+            Dict(
+                "key" => "10.1234/a-both",
+                "title" => "alpha entry",
+                "abstract" => "some alpha keyword",
+            ),
         )
         r = search_entries(store, "alpha")
         @test r[1].key == "10.1234/a-both"         # more matched fields → first
@@ -130,9 +140,12 @@ end
     mktempdir() do root
         store = BiblioFetch.open_store(root)
         BiblioFetch.write_metadata!(
-            store, "10.1234/snip",
-            Dict("key" => "10.1234/snip",
-                 "abstract" => "one two three four FIVE six seven eight nine"),
+            store,
+            "10.1234/snip",
+            Dict(
+                "key" => "10.1234/snip",
+                "abstract" => "one two three four FIVE six seven eight nine",
+            ),
         )
         r = search_entries(store, "FIVE")
         @test length(r) == 1

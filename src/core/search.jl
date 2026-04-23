@@ -133,13 +133,19 @@ end
 function Base.show(io::IO, ::MIME"text/plain", ms::AbstractVector{SearchMatch})
     if isempty(ms)
         println(io, "(no matches)")
-        return
+        return nothing
     end
     println(io, length(ms), " match(es):")
     for m in ms
-        mark = m.status == "ok" ? "✓" :
-               m.status == "pending" ? "…" :
-               m.status == "failed" ? "✗" : "?"
+        mark = if m.status == "ok"
+            "✓"
+        elseif m.status == "pending"
+            "…"
+        elseif m.status == "failed"
+            "✗"
+        else
+            "?"
+        end
         yr = isempty(m.year) ? "" : " ($(m.year))"
         gr = isempty(m.group) ? "" : "   group: $(m.group)"
         fields_str = join(string.(m.matched_fields), ", ")

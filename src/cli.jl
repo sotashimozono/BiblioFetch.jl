@@ -303,17 +303,23 @@ function _cmd_search(args)
     while i <= length(args)
         a = args[i]
         if a == "--field" && i < length(args)
-            push!(fields, Symbol(args[i + 1])); i += 2
+            push!(fields, Symbol(args[i + 1]));
+            i += 2
         elseif a == "--group" && i < length(args)
-            group = args[i + 1]; i += 2
+            group = args[i + 1];
+            i += 2
         elseif a == "--status" && i < length(args)
-            status = args[i + 1]; i += 2
+            status = args[i + 1];
+            i += 2
         elseif a == "--case-sensitive" || a == "-c"
-            case_sensitive = true; i += 1
+            case_sensitive = true;
+            i += 1
         elseif startswith(a, "--")
-            println(stderr, "search: unknown flag $(a)"); return 2
+            println(stderr, "search: unknown flag $(a)");
+            return 2
         else
-            push!(q_parts, a); i += 1
+            push!(q_parts, a);
+            i += 1
         end
     end
     query = join(q_parts, " ")
@@ -322,8 +328,12 @@ function _cmd_search(args)
     rt = detect_environment(; probe=false)
     store = open_store(rt.store_root)
     matches = search_entries(
-        store, query;
-        fields=fields_kw, group=group, status=status, case_sensitive=case_sensitive,
+        store,
+        query;
+        fields=fields_kw,
+        group=group,
+        status=status,
+        case_sensitive=case_sensitive,
     )
     show(stdout, MIME("text/plain"), matches)
     return isempty(matches) ? 1 : 0
