@@ -259,6 +259,20 @@ function fetch_paper!(
                 (md["journal"] = String(s2["journal"]))
             haskey(s2, "s2_paper_id") && (md["s2_paper_id"] = String(s2["s2_paper_id"]))
             haskey(s2, "oa_pdf_url") && push!(candidates, (:s2, String(s2["oa_pdf_url"])))
+            # Citation-graph supplement: S2 carries references for arXiv-only
+            # preprints and for publishers whose Crossref records don't include
+            # reference lists. Merge with anything already recorded from
+            # `crossref_references` (above), dedupe, preserve order.
+            if haskey(s2, "references")
+                s2_refs = String.(s2["references"])
+                existing = String.(get(md, "referenced_dois", String[]))
+                merged = copy(existing)
+                seen = Set(existing)
+                for r in s2_refs
+                    r in seen || (push!(merged, r); push!(seen, r))
+                end
+                isempty(merged) || (md["referenced_dois"] = merged)
+            end
         end
     end
 
