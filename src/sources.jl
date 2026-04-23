@@ -1,5 +1,12 @@
 const USER_AGENT = "BiblioFetch/0.1 (+https://github.com/; mailto:souta.shimozono@gmail.com)"
 
+# Default base URLs for the external APIs. Each lookup function accepts a
+# `base_url` kwarg that overrides these — used by the mock-server tests to
+# point the code at a local HTTP.serve handler without any monkey-patching.
+const CROSSREF_URL  = "https://api.crossref.org/works/"
+const UNPAYWALL_URL = "https://api.unpaywall.org/v2/"
+const ARXIV_API_URL = "http://export.arxiv.org/api/query"
+
 # Deeply convert JSON3 objects/arrays to plain Dict{String,Any} / Vector{Any}
 # so that String-keyed `get(x, "foo", …)` and TOML.print both work predictably.
 function _to_plain(x)
@@ -79,12 +86,16 @@ end
 # ---------- Crossref ----------
 
 """
-    crossref_lookup(doi; proxy = nothing) -> Dict
+    crossref_lookup(doi; proxy = nothing, timeout = 15, base_url = CROSSREF_URL) -> Dict
 
-Fetch Crossref metadata for a DOI. Returns an empty Dict on failure.
+Fetch Crossref metadata for a DOI. Returns an empty `Dict` on any failure
+(network error, non-200 response, malformed JSON). `base_url` is overridable
+for testing against a mock server.
 """
-function crossref_lookup(doi::AbstractString; proxy=nothing, timeout=15)
-    url = "https://api.crossref.org/works/" * URIs.escapeuri(doi)
+function crossref_lookup(
+    doi::AbstractString; proxy=nothing, timeout=15, base_url=CROSSREF_URL
+)
+    url = base_url * URIs.escapeuri(doi)
     try
         kw = (;
             headers=["User-Agent" => USER_AGENT],
@@ -106,18 +117,21 @@ end
 # ---------- Unpaywall ----------
 
 """
-    unpaywall_lookup(doi; email, proxy = nothing) -> (url_or_nothing, metadata_dict)
+    unpaywall_lookup(doi; email, proxy = nothing, timeout = 15,
+                     base_url = UNPAYWALL_URL) -> (url_or_nothing, metadata_dict)
 
-Ask Unpaywall for the best OA PDF URL. Requires `email`.
+Ask Unpaywall for the best OA PDF URL. Requires `email` (Unpaywall API policy).
+Returns `(pdf_url, metadata)` where `pdf_url === nothing` when no OA copy is
+registered, and `metadata === Dict()` on hard failure.
 """
 function unpaywall_lookup(
-    doi::AbstractString; email::AbstractString, proxy=nothing, timeout=15
+    doi::AbstractString;
+    email::AbstractString,
+    proxy=nothing,
+    timeout=15,
+    base_url=UNPAYWALL_URL,
 )
-    url =
-        "https://api.unpaywall.org/v2/" *
-        URIs.escapeuri(doi) *
-        "?email=" *
-        URIs.escapeuri(email)
+    url = base_url * URIs.escapeuri(doi) * "?email=" * URIs.escapeuri(email)
     try
         kw = (;
             headers=["User-Agent" => USER_AGENT],
@@ -168,7 +182,8 @@ function arxiv_id_from_crossref(meta)
 end
 
 """
-    arxiv_search_by_title(title; authors, proxy, timeout) -> String or nothing
+    arxiv_search_by_title(title; authors, proxy, timeout,
+                          base_url = ARXIV_API_URL) -> String or nothing
 
 Fallback: hit the arXiv API by title (and optionally first author) and return the
 first matching arXiv id. Approximate — use as a last resort.
@@ -178,11 +193,11 @@ function arxiv_search_by_title(
     authors::Vector{<:AbstractString}=String[],
     proxy=nothing,
     timeout=15,
+    base_url=ARXIV_API_URL,
 )
     q = "ti:\"" * replace(title, '"' => ' ') * "\""
     isempty(authors) || (q *= " AND au:\"" * replace(first(authors), '"' => ' ') * "\"")
-    url =
-        "http://export.arxiv.org/api/query?max_results=1&search_query=" * URIs.escapeuri(q)
+    url = base_url * "?max_results=1&search_query=" * URIs.escapeuri(q)
     try
         kw = (;
             headers=["User-Agent" => USER_AGENT],
@@ -303,15 +318,18 @@ function _parse_arxiv_atom(xml::AbstractString)
 end
 
 """
-    arxiv_metadata(id; proxy = nothing, timeout = 15) -> NamedTuple | nothing
+    arxiv_metadata(id; proxy = nothing, timeout = 15,
+                   base_url = ARXIV_API_URL) -> NamedTuple | nothing
 
 Hit the arXiv API for a single id (`1706.03762` / `cond-mat/0608208`) and
 return the parsed metadata, or `nothing` if the lookup fails. Strips the
 `arxiv:` prefix if passed.
 """
-function arxiv_metadata(id::AbstractString; proxy=nothing, timeout=15)
+function arxiv_metadata(
+    id::AbstractString; proxy=nothing, timeout=15, base_url=ARXIV_API_URL
+)
     raw = startswith(lowercase(String(id)), "arxiv:") ? id[7:end] : id
-    url = "http://export.arxiv.org/api/query?id_list=" * URIs.escapeuri(String(raw))
+    url = base_url * "?id_list=" * URIs.escapeuri(String(raw))
     try
         kw = (;
             headers=["User-Agent" => USER_AGENT],
