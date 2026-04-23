@@ -61,8 +61,8 @@ function _http_get_with_retry(
     last_err::Union{String,Nothing} = nothing
     for attempt in 0:max_retries
         try
-            resp = proxy === nothing ? HTTP.get(url; kw...) :
-                                        HTTP.get(url; proxy=proxy, kw...)
+            resp =
+                proxy === nothing ? HTTP.get(url; kw...) : HTTP.get(url; proxy=proxy, kw...)
             if resp.status in retry_statuses && attempt < max_retries
                 delay = _parse_retry_after(resp)
                 delay === nothing && (delay = base_delay * 2.0^attempt)

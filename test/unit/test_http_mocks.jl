@@ -239,10 +239,10 @@ end
     dead_port = _free_port()
     dead_base = "http://127.0.0.1:$(dead_port)"
     @test BiblioFetch.crossref_lookup(
-        "10.1/x"; base_url=dead_base * "/works/", timeout=2, max_retries=0,
+        "10.1/x"; base_url=dead_base * "/works/", timeout=2, max_retries=0
     ) == Dict{String,Any}()
     @test BiblioFetch.arxiv_metadata(
-        "1234.5678"; base_url=dead_base, timeout=2, max_retries=0,
+        "1234.5678"; base_url=dead_base, timeout=2, max_retries=0
     ) === nothing
 end
 
@@ -251,7 +251,7 @@ end
 # Handler that returns `status` on the first N calls, then the success body.
 # Call-count state lives in a Ref so the handler closure can increment it.
 function _flaky_then_success(flakes::Ref{Int}, status::Int, body::String)
-    return function(_req::HTTP.Request)
+    return function (_req::HTTP.Request)
         flakes[] -= 1
         if flakes[] >= 0
             return HTTP.Response(status, [], "retry me")
@@ -277,7 +277,7 @@ end
 
 @testset "retry: 429 forever gives up after max_retries" begin
     call_count = Ref(0)
-    handler = function(_req::HTTP.Request)
+    handler = function (_req::HTTP.Request)
         call_count[] += 1
         HTTP.Response(429, [], "throttled")
     end
@@ -297,13 +297,14 @@ end
 @testset "retry: honors Retry-After header (seconds form)" begin
     slept_with = Float64[]
     flakes = Ref(1)
-    handler = function(_req::HTTP.Request)
+    handler = function (_req::HTTP.Request)
         flakes[] -= 1
         if flakes[] >= 0
             return HTTP.Response(429, ["Retry-After" => "7"], "throttled")
         end
         return HTTP.Response(
-            200, ["Content-Type" => "application/json"],
+            200,
+            ["Content-Type" => "application/json"],
             """{"message":{"title":["After wait"]}}""",
         )
     end
@@ -321,7 +322,7 @@ end
 
 @testset "retry: non-retriable status (404) returns immediately" begin
     call_count = Ref(0)
-    handler = function(_req::HTTP.Request)
+    handler = function (_req::HTTP.Request)
         call_count[] += 1
         HTTP.Response(404, [], "nope")
     end
