@@ -8,6 +8,7 @@ Usage:
   bibliofetch bib <dir> [--out <path>]    Export BibTeX for all ok entries in a store root
   bibliofetch import <refs.bib>           Queue DOIs / arXiv ids from an existing .bib file
   bibliofetch dedup [<dir>] [--apply]     Report (or apply with --apply) PDF-hash duplicates
+  bibliofetch doctor [<dir>] [--fix]      Report (or --fix) integrity issues (orphans, missing, .part)
   bibliofetch watch <job.toml>            Watch job file; re-run on each save (Ctrl+C to stop)
   bibliofetch add <ref> [<ref> …]         Queue refs into the global store
   bibliofetch add -f <file>               Queue from a file (one ref per line; '#' comments ok)
@@ -552,6 +553,71 @@ function _cmd_import(args)
     return 0
 end
 
+function Base.show(io::IO, ::MIME"text/plain", issues::AbstractVector{StoreIssue})
+    if isempty(issues)
+        println(io, "no issues found")
+        return nothing
+    end
+    current_kind = nothing
+    for iss in issues
+        if iss.kind !== current_kind
+            current_kind = iss.kind
+            mark = if iss.kind === :pdf_missing
+                "✗"
+            elseif iss.kind === :orphan_pdf
+                "?"
+            elseif iss.kind === :incomplete_part
+                "~"
+            elseif iss.kind === :sha_mismatch
+                "!"
+            elseif iss.kind === :empty_pdf
+                "∅"
+            else
+                "?"
+            end
+            cnt = count(x -> x.kind === iss.kind, issues)
+            println(io, "\n  ", mark, " ", iss.kind, " (", cnt, ")")
+        end
+        if !isempty(iss.key)
+            println(io, "      ", iss.key, "  — ", iss.detail)
+            println(io, "        at ", iss.path)
+        else
+            println(io, "      ", iss.path, "  — ", iss.detail)
+        end
+    end
+end
+
+function _cmd_doctor(args)
+    do_fix = "--fix" in args
+    rt = detect_environment(; probe=false)
+    dir = nothing
+    for a in args
+        startswith(a, "--") || (dir = a)
+    end
+    store = open_store(dir === nothing ? rt.store_root : dir)
+    println("BiblioFetch store diagnostic")
+    println("  root: ", store.root)
+    issues = doctor(store)
+    show(stdout, MIME("text/plain"), issues)
+    if isempty(issues)
+        return 0
+    end
+    if do_fix
+        n = fix!(store, issues)
+        println("\n\nfixed $(n) issue(s) (safe defaults: :incomplete_part, :pdf_missing).")
+        println(
+            "Re-run without --fix to confirm, or pass `BiblioFetch.fix!` in Julia with ",
+            "explicit `kinds=(…)` to include orphans / sha_mismatch / empty_pdf.",
+        )
+    else
+        println(
+            "\n\n$(length(issues)) issue(s). Re-run with --fix to auto-clean " *
+            ":incomplete_part + :pdf_missing.",
+        )
+    end
+    return 0
+end
+
 function _cmd_dedup(args)
     apply = "--apply" in args
     rt = detect_environment(; probe=false)
@@ -650,6 +716,8 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
             _cmd_import(rest)
         elseif cmd == "dedup"
             _cmd_dedup(rest)
+        elseif cmd == "doctor"
+            _cmd_doctor(rest)
         elseif cmd == "watch"
             _cmd_watch(rest)
         elseif cmd == "add"

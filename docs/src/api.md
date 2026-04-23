@@ -65,6 +65,14 @@ find_duplicates
 resolve_duplicates!
 ```
 
+## Doctor (store integrity)
+
+```@docs
+doctor
+fix!
+StoreIssue
+```
+
 ## Search
 
 ```@docs
