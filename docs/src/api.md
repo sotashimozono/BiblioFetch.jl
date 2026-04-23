@@ -54,6 +54,13 @@ bibtex_entry
 write_bibtex
 ```
 
+## Deduplication
+
+```@docs
+find_duplicates
+resolve_duplicates!
+```
+
 ## CLI
 
 ```@docs
