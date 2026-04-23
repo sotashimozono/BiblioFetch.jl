@@ -17,6 +17,7 @@ Usage:
   bibliofetch list [--all]                List global store entries
   bibliofetch search <q> [--field f]…     Substring-search title/authors/abstract/journal/key
   bibliofetch stats [<dir>]               Summary: counts by status/source/group + PDF size
+  bibliofetch graph [--format dot|mermaid] [--out path] [--queued] [--all]   Citation-graph viz
   bibliofetch info <ref> [--raw]          Show stored metadata (pretty; --raw for TOML dump)
   bibliofetch help                        Show this message
 
@@ -389,6 +390,54 @@ function Base.show(io::IO, ::MIME"text/plain", st::StoreStats)
     end
 end
 
+function _cmd_graph(args)
+    format = "dot"
+    out_path = ""
+    queued = false
+    include_iso = false
+    dir = nothing
+    i = 1
+    while i <= length(args)
+        a = args[i]
+        if a == "--format" && i < length(args)
+            format = args[i + 1];
+            i += 2
+        elseif a == "--out" && i < length(args)
+            out_path = args[i + 1];
+            i += 2
+        elseif a == "--queued"
+            queued = true;
+            i += 1
+        elseif a == "--all"
+            include_iso = true;
+            i += 1
+        elseif !startswith(a, "--")
+            dir = a;
+            i += 1
+        else
+            println(stderr, "graph: unknown flag $(a)");
+            return 2
+        end
+    end
+    format in ("dot", "mermaid") ||
+        (println(stderr, "graph: --format must be dot or mermaid"); return 2)
+
+    rt = detect_environment(; probe=false)
+    store = open_store(dir === nothing ? rt.store_root : dir)
+    txt = if format == "dot"
+        to_dot(store; queued_only=queued, include_isolated=include_iso)
+    else
+        to_mermaid(store; queued_only=queued, include_isolated=include_iso)
+    end
+    if isempty(out_path)
+        print(txt)
+    else
+        write(out_path, txt)
+        println(stderr, "graph: wrote $(format) to $(out_path)")
+    end
+    return 0
+end
+
 function _cmd_stats(args)
     rt = detect_environment(; probe=false)
     dir = nothing
@@ -732,6 +781,8 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
             _cmd_search(rest)
         elseif cmd == "stats"
             _cmd_stats(rest)
+        elseif cmd == "graph"
+            _cmd_graph(rest)
         elseif cmd == "info"
             _cmd_info(rest)
         else
