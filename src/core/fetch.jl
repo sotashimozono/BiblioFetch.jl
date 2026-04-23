@@ -16,11 +16,22 @@ end
     FetchResult
 
 Outcome of `fetch_paper!` on a single reference.
+
+`source` is the *successful* route when `ok == true` (`:unpaywall` / `:arxiv`
+/ `:direct` / `:cached`). When `ok == false` it encodes the *failure kind*:
+
+  * `:none`     — tried, got real HTTP responses, nothing worked (paywall /
+                  404 / landing page). A retry won't help until the world
+                  changes.
+  * `:deferred` — either no candidates could even be generated or every
+                  attempt was a connection-level error. Likely cause: the
+                  network / relevant API is down right now. `sync` will
+                  retry these.
 """
 struct FetchResult
     key::String
     ok::Bool
-    source::Symbol                          # :unpaywall | :arxiv | :direct | :cached | :none
+    source::Symbol
     pdf_path::Union{String,Nothing}
     error::Union{String,Nothing}
     attempts::Vector{AttemptLog}
@@ -241,16 +252,27 @@ function fetch_paper!(
     last_err = used_source === :none && !isempty(attempts) ? attempts[end].error : nothing
 
     if used_source === :none
-        md["status"] = "failed"
+        # :pending vs :failed split — if we never reached a server at all (no
+        # attempts, or every attempt was a connection-level error with no HTTP
+        # status), treat it as deferred. `sync` will retry :pending entries
+        # automatically next time the network comes back; that's exactly the
+        # laptop-at-home → back-to-university flow.
+        network_deferred =
+            isempty(attempts) || all(a -> a.http_status === nothing, attempts)
+        md["status"] = network_deferred ? "pending" : "failed"
         md["error"] = if isempty(candidates)
-            "no candidate PDF URL"
+            "no candidate PDF URL (no reachable source)"
+        elseif last_err === nothing
+            "unknown"
         else
-            (last_err === nothing ? "unknown" : last_err)
+            last_err
         end
         md["last_attempt_at"] = string(Dates.now())
         md["attempts"] = _attempts_to_dict.(attempts)
         write_metadata!(store, key, md)
-        return FetchResult(key, false, :none, nothing, md["error"], attempts)
+        return FetchResult(
+            key, false, network_deferred ? :deferred : :none, nothing, md["error"], attempts
+        )
     else
         md["status"] = "ok"
         md["source"] = String(used_source)
