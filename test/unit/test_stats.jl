@@ -14,7 +14,10 @@ end
 function _seed_pdf!(store, key; group="", bytes=rand(UInt8, 2048))
     p = BiblioFetch.pdf_path(store, key; group=group)
     mkpath(dirname(p))
-    open(p, "w") do io; write(io, bytes); end
+    open(p, "w") do io
+        ;
+        write(io, bytes);
+    end
     return p
 end
 
@@ -57,11 +60,14 @@ end
     mktempdir() do root
         store = BiblioFetch.open_store(root)
         # Entry with real on-disk PDF
-        _seed!(store, "10.1234/ok"; status="ok",
-                     pdf_path=_seed_pdf!(store, "10.1234/ok"; bytes=zeros(UInt8, 3072)))
+        _seed!(
+            store,
+            "10.1234/ok";
+            status="ok",
+            pdf_path=_seed_pdf!(store, "10.1234/ok"; bytes=zeros(UInt8, 3072)),
+        )
         # Entry pointing at a PDF that was deleted
-        _seed!(store, "10.1234/gone"; status="ok",
-                     pdf_path=joinpath(root, "gone.pdf"))
+        _seed!(store, "10.1234/gone"; status="ok", pdf_path=joinpath(root, "gone.pdf"))
         # Entry with no pdf_path at all
         _seed!(store, "10.1234/nopath"; status="pending")
 
@@ -77,7 +83,9 @@ end
         store = BiblioFetch.open_store(root)
         _seed!(store, "10.1234/seed"; status="ok", depth=0)
         _seed!(store, "10.1234/child1"; status="ok", depth=1, referenced_by="10.1234/seed")
-        _seed!(store, "10.1234/child2"; status="ok", depth=2, referenced_by="10.1234/child1")
+        _seed!(
+            store, "10.1234/child2"; status="ok", depth=2, referenced_by="10.1234/child1"
+        )
         _seed!(store, "10.1234/dup"; status="ok", duplicate_of="10.1234/seed")
 
         st = stats(store)
@@ -111,7 +119,10 @@ end
         _seed!(store, "10.1234/good"; status="ok")
         # Malformed file directly in .metadata/
         bad_path = joinpath(root, BiblioFetch.METADATA_DIRNAME, "bad.toml")
-        open(bad_path, "w") do io; write(io, "not = valid = toml ="); end
+        open(bad_path, "w") do io
+            ;
+            write(io, "not = valid = toml =");
+        end
 
         st = stats(store)    # should not throw
         @test st.total == 1

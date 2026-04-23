@@ -98,9 +98,17 @@ function stats(store::Store)
     end
 
     return StoreStats(
-        store.root, total, by_status, by_source, by_group,
-        pdf_count, pdf_total_bytes, pdf_missing,
-        duplicate_resolved, graph_expanded,
-        oldest, newest,
+        store.root,
+        total,
+        by_status,
+        by_source,
+        by_group,
+        pdf_count,
+        pdf_total_bytes,
+        pdf_missing,
+        duplicate_resolved,
+        graph_expanded,
+        oldest,
+        newest,
     )
 end

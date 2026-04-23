@@ -340,7 +340,7 @@ function Base.show(io::IO, ::MIME"text/plain", st::StoreStats)
     println(io, "  entries : ", st.total)
 
     function _section(title, d; label_fn=identity)
-        isempty(d) && return
+        isempty(d) && return nothing
         println(io, "\n  ", title)
         w = maximum(length(label_fn(k)) for k in keys(d))
         for k in sort!(collect(keys(d)))
@@ -354,19 +354,29 @@ function Base.show(io::IO, ::MIME"text/plain", st::StoreStats)
 
     if st.graph_expanded > 0 || st.duplicate_resolved > 0 || st.pdf_missing > 0
         println(io)
-        st.graph_expanded > 0 &&
-            println(io, "  graph-expanded    : ", st.graph_expanded,
-                        "  (queued by citation hops, depth > 0)")
-        st.duplicate_resolved > 0 &&
-            println(io, "  duplicates linked : ", st.duplicate_resolved,
-                        "  (resolved via `dedup --apply`)")
-        st.pdf_missing > 0 &&
-            println(io, "  pdf_path missing  : ", st.pdf_missing,
-                        "  (metadata points at a file that's gone)")
+        st.graph_expanded > 0 && println(
+            io,
+            "  graph-expanded    : ",
+            st.graph_expanded,
+            "  (queued by citation hops, depth > 0)",
+        )
+        st.duplicate_resolved > 0 && println(
+            io,
+            "  duplicates linked : ",
+            st.duplicate_resolved,
+            "  (resolved via `dedup --apply`)",
+        )
+        st.pdf_missing > 0 && println(
+            io,
+            "  pdf_path missing  : ",
+            st.pdf_missing,
+            "  (metadata points at a file that's gone)",
+        )
     end
 
-    println(io, "\n  PDFs    : ", st.pdf_count, " files, ",
-            _humanize_bytes(st.pdf_total_bytes))
+    println(
+        io, "\n  PDFs    : ", st.pdf_count, " files, ", _humanize_bytes(st.pdf_total_bytes)
+    )
 
     if st.oldest_fetch !== nothing
         s = string(st.oldest_fetch)
