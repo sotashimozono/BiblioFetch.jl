@@ -2,6 +2,7 @@ module BiblioFetch
 
 using Dates
 using Downloads
+using FileWatching
 using HTTP
 using JSON3
 using Logging
@@ -21,6 +22,7 @@ include("core/fetch.jl")
 include("core/dedup.jl")          # depends on store + sha256 from fetch
 include("io/bibtex.jl")
 include("core/job.jl")            # depends on fetch + store + bibtex
+include("core/watch.jl")          # depends on job.run
 include("cli.jl")
 
 export detect_environment, load_config, effective_runtime

@@ -6,6 +6,7 @@ Usage:
   bibliofetch run <job.toml>              Execute a job TOML (groups, parallel, log)
   bibliofetch bib <dir> [--out <path>]    Export BibTeX for all ok entries in a store root
   bibliofetch dedup [<dir>] [--apply]     Report (or apply with --apply) PDF-hash duplicates
+  bibliofetch watch <job.toml>            Watch job file; re-run on each save (Ctrl+C to stop)
   bibliofetch add <ref> [<ref> …]         Queue refs into the global store
   bibliofetch add -f <file>               Queue from a file (one ref per line; '#' comments ok)
   bibliofetch sync [--force] [--quiet]    Fetch pending/failed entries; --force re-downloads even ok+pdf entries
@@ -317,6 +318,21 @@ function _cmd_info(args)
     return 0
 end
 
+function _cmd_watch(args)
+    isempty(args) && (println(stderr, "watch: need a job TOML path"); return 2)
+    path = args[1]
+    quiet = ("--quiet" in args) || ("-q" in args)
+    rt = detect_environment()
+    !quiet && (show(stdout, MIME("text/plain"), rt); println(); println())
+    try
+        watch(path; verbose=!quiet, runtime=rt)
+    catch e
+        println(stderr, "watch: ", sprint(showerror, e))
+        return 1
+    end
+    return 0
+end
+
 function _cmd_dedup(args)
     apply = "--apply" in args
     rt = detect_environment(; probe=false)
@@ -405,6 +421,8 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
             _cmd_bib(rest)
         elseif cmd == "dedup"
             _cmd_dedup(rest)
+        elseif cmd == "watch"
+            _cmd_watch(rest)
         elseif cmd == "add"
             _cmd_add(rest)
         elseif cmd == "sync"
