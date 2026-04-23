@@ -15,11 +15,11 @@ end
     # Use a fixed "now" so the test is deterministic.
     now = DateTime(2026, 4, 23, 12, 0, 0)
 
-    @test BiblioFetch._humanize_age(string(now - Second(3));        now_dt=now) == "just now"
-    @test BiblioFetch._humanize_age(string(now - Second(30));       now_dt=now) == "30s ago"
-    @test BiblioFetch._humanize_age(string(now - Minute(5));        now_dt=now) == "5m ago"
-    @test BiblioFetch._humanize_age(string(now - Hour(3));          now_dt=now) == "3.0h ago"
-    @test BiblioFetch._humanize_age(string(now - Day(2));           now_dt=now) == "2.0d ago"
+    @test BiblioFetch._humanize_age(string(now - Second(3)); now_dt=now) == "just now"
+    @test BiblioFetch._humanize_age(string(now - Second(30)); now_dt=now) == "30s ago"
+    @test BiblioFetch._humanize_age(string(now - Minute(5)); now_dt=now) == "5m ago"
+    @test BiblioFetch._humanize_age(string(now - Hour(3)); now_dt=now) == "3.0h ago"
+    @test BiblioFetch._humanize_age(string(now - Day(2)); now_dt=now) == "2.0d ago"
 
     # Invalid / empty string → "" (no exception)
     @test BiblioFetch._humanize_age(""; now_dt=now) == ""
@@ -62,15 +62,15 @@ end
     s = BiblioFetch._format_info_entry(md; now_dt=now)
 
     @test startswith(s, "── 10.1103/physrevresearch.1.033027 ──\n")
-    @test occursin(r"title\s+: Excitation of a uniformly moving atom",     s)
-    @test occursin(r"authors\s+: Anatoly A. Svidzinsky",                     s)
-    @test occursin(r"journal\s+: Physical Review Research",                  s)
-    @test occursin(r"year\s+: 2019",                                         s)
-    @test occursin(r"status\s+: ok",                                         s)
-    @test occursin(r"source\s+: unpaywall",                                  s)
-    @test occursin(r"group\s+: condensed-matter",                            s)
-    @test occursin(r"is_oa\s+: true",                                        s)
-    @test occursin(r"citekey\s+: Svidzinsky2019",                            s)
+    @test occursin(r"title\s+: Excitation of a uniformly moving atom", s)
+    @test occursin(r"authors\s+: Anatoly A. Svidzinsky", s)
+    @test occursin(r"journal\s+: Physical Review Research", s)
+    @test occursin(r"year\s+: 2019", s)
+    @test occursin(r"status\s+: ok", s)
+    @test occursin(r"source\s+: unpaywall", s)
+    @test occursin(r"group\s+: condensed-matter", s)
+    @test occursin(r"is_oa\s+: true", s)
+    @test occursin(r"citekey\s+: Svidzinsky2019", s)
     @test occursin("(missing!)", s)               # the seeded path doesn't exist
     @test occursin("2.0h ago", s)
 
@@ -89,19 +89,29 @@ end
         "error" => "no candidate PDF URL",
         "last_attempt_at" => string(now - Minute(5)),
         "attempts" => [
-            Dict("source" => "unpaywall", "url" => "https://api.unpaywall.org/v2/xxx",
-                 "ok" => false, "http_status" => 404, "duration_s" => 0.31,
-                 "error" => "not found in OA DB"),
-            Dict("source" => "arxiv", "url" => "https://arxiv.org/pdf/yyy.pdf",
-                 "ok" => false, "http_status" => 404, "duration_s" => 0.52,
-                 "error" => "http status 404"),
+            Dict(
+                "source" => "unpaywall",
+                "url" => "https://api.unpaywall.org/v2/xxx",
+                "ok" => false,
+                "http_status" => 404,
+                "duration_s" => 0.31,
+                "error" => "not found in OA DB",
+            ),
+            Dict(
+                "source" => "arxiv",
+                "url" => "https://arxiv.org/pdf/yyy.pdf",
+                "ok" => false,
+                "http_status" => 404,
+                "duration_s" => 0.52,
+                "error" => "http status 404",
+            ),
         ],
     )
     s = BiblioFetch._format_info_entry(md; now_dt=now)
 
-    @test occursin(r"status\s+: failed",                s)
-    @test occursin(r"error\s+: no candidate PDF URL",    s)
-    @test occursin(r"last try\s+: ",                     s)
+    @test occursin(r"status\s+: failed", s)
+    @test occursin(r"error\s+: no candidate PDF URL", s)
+    @test occursin(r"last try\s+: ", s)
     @test occursin("5m ago", s)
     @test occursin("✗ unpaywall", s)
     @test occursin("✗ arxiv", s)
@@ -118,8 +128,13 @@ end
             write(io, "%PDF-1.5\n")
             write(io, rand(UInt8, 1536))
         end
-        md = Dict{String,Any}("key" => "arxiv:9999.0001", "status" => "ok",
-                               "pdf_path" => p, "authors" => ["Demo"], "year" => 2025)
+        md = Dict{String,Any}(
+            "key" => "arxiv:9999.0001",
+            "status" => "ok",
+            "pdf_path" => p,
+            "authors" => ["Demo"],
+            "year" => 2025,
+        )
         s = BiblioFetch._format_info_entry(md)
         # file is ~1.5 KB
         @test occursin("KB)", s)

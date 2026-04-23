@@ -172,8 +172,9 @@ function _humanize_age(ts_str::AbstractString; now_dt::Dates.DateTime=Dates.now(
     return @sprintf("%.1fy ago", days / 365)
 end
 
-_truncate(s::AbstractString, maxlen::Int) =
+function _truncate(s::AbstractString, maxlen::Int)
     length(s) <= maxlen ? String(s) : String(s[1:(maxlen - 1)]) * "…"
+end
 
 """
     _format_info_entry(md) -> String
