@@ -137,6 +137,22 @@ function fetch_paper!(
         end
     end
 
+    # Fallback enrichment: when Crossref gave us nothing but we have an arXiv
+    # id (primary arxiv entry, or Crossref `relation.has-preprint` hit),
+    # ask the arXiv API for title / authors / year / journal_ref.
+    if arxiv !== nothing && isempty(get(md, "title", ""))
+        verbose && @info "→ arXiv metadata lookup" arxiv
+        ax_meta = arxiv_metadata(arxiv; proxy=rt.proxy)
+        if ax_meta !== nothing
+            md["title"] = ax_meta.title
+            isempty(ax_meta.authors) || (md["authors"] = ax_meta.authors)
+            ax_meta.year === nothing || (md["year"] = ax_meta.year)
+            ax_meta.journal === nothing || (md["journal"] = ax_meta.journal)
+            ax_meta.primary_category === nothing ||
+                (md["primary_category"] = ax_meta.primary_category)
+        end
+    end
+
     candidates = Tuple{Symbol,String}[]  # (source, url)
     want(s) = s in sources
 
