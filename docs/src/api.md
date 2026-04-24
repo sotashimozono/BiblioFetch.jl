@@ -18,6 +18,15 @@ load_config
 normalize_key
 is_doi
 is_arxiv
+is_arxiv_versions
+parse_arxiv_version_spec
+```
+
+## arXiv version discovery
+
+```@docs
+arxiv_latest_version
+arxiv_list_versions
 ```
 
 ## Store

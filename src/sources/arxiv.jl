@@ -126,6 +126,65 @@ function arxiv_metadata(
 end
 
 """
+    arxiv_latest_version(id; proxy, timeout, base_url = ARXIV_API_URL)
+        -> Int or nothing
+
+Return the number of the latest published version of arXiv paper `id`.
+arXiv's API answers an `id_list=<id>` query with the entry's canonical URL
+in `<id>`, which always carries the current `vN` suffix — the integer after
+`v` is the latest-version number. Missing or unparseable responses return
+`nothing`. Strips an `arxiv:` prefix if passed.
+"""
+function arxiv_latest_version(
+    id::AbstractString;
+    proxy=nothing,
+    timeout=15,
+    base_url=ARXIV_API_URL,
+    max_retries::Int=DEFAULT_MAX_RETRIES,
+    base_delay::Real=DEFAULT_BASE_DELAY,
+    sleep_fn=Base.sleep,
+)
+    raw = startswith(lowercase(String(id)), "arxiv:") ? id[7:end] : id
+    # Strip any trailing version so the API returns the latest.
+    raw = replace(String(raw), r"v\d+$" => "")
+    url = base_url * "?id_list=" * URIs.escapeuri(String(raw))
+    resp, _ = _http_get_with_retry(
+        url;
+        proxy=proxy,
+        request_kwargs=(; connect_timeout=timeout, readtimeout=timeout),
+        max_retries=max_retries,
+        base_delay=base_delay,
+        sleep_fn=sleep_fn,
+    )
+    (resp === nothing || resp.status != 200) && return nothing
+    body = String(resp.body)
+    # The first <id> inside an <entry> carries the abs URL. Match its vN tail.
+    entry = match(r"<entry>(.*?)</entry>"s, body)
+    entry === nothing && return nothing
+    idtag = match(r"<id>([^<]+)</id>"s, String(entry.captures[1]))
+    idtag === nothing && return nothing
+    m = match(r"v(\d+)$", strip(String(idtag.captures[1])))
+    m === nothing && return 1   # no vN suffix → only v1 exists
+    return parse(Int, m.captures[1])
+end
+
+"""
+    arxiv_list_versions(id; kwargs...) -> Vector{Int}
+
+Return every version number an arXiv paper has, in ascending order. arXiv
+numbers versions sequentially from 1, so this is `1:arxiv_latest_version(id)`
+with the API call cached into a single trip. Returns `Int[]` on lookup
+failure.
+
+`kwargs` are forwarded to `arxiv_latest_version`.
+"""
+function arxiv_list_versions(id::AbstractString; kwargs...)
+    latest = arxiv_latest_version(id; kwargs...)
+    latest === nothing && return Int[]
+    return collect(1:Int(latest))
+end
+
+"""
     arxiv_search_by_title(title; authors, proxy, timeout,
                           base_url = ARXIV_API_URL) -> String or nothing
 
