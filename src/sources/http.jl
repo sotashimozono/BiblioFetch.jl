@@ -32,13 +32,21 @@ end
 
 """
     _http_get_with_retry(url; proxy, request_kwargs, max_retries, base_delay,
-                         retry_statuses, sleep_fn) -> (resp_or_nothing, err_or_nothing)
+                         retry_statuses, sleep_fn)
+        -> (resp_or_nothing, err_or_nothing, trace)
 
 GET `url` with exponential backoff on `retry_statuses` (default 429 / 502 / 503
 / 504) and on raised exceptions. Honors the `Retry-After` response header for
 rate-limit responses. Returns the final `HTTP.Response` (even if it's still in
-`retry_statuses` after all attempts), or `(nothing, error_msg)` when every
+`retry_statuses` after all attempts), or `(nothing, error_msg, trace)` when every
 attempt threw.
+
+`trace` is a `NamedTuple` `(; retry_count, retried_statuses)` — number of
+retries burned before the returned response, and the status codes that
+triggered each retry. Exception-driven retries are recorded as `0` (the
+request never reached the server so no status exists). Callers that
+discard trace via `resp, _ = ...` are unaffected (tuple destructuring
+takes the first two elements).
 
 All lookup functions route through here; callers never handle retry logic
 directly. `sleep_fn` is injectable for tests.
@@ -64,6 +72,7 @@ function _http_get_with_retry(
     )
 
     last_err::Union{String,Nothing} = nothing
+    retried_statuses = Int[]   # one entry per retry actually taken
     for attempt in 0:max_retries
         try
             resp =
@@ -72,20 +81,26 @@ function _http_get_with_retry(
                 delay = _parse_retry_after(resp)
                 delay === nothing && (delay = base_delay * 2.0^attempt)
                 @debug "retrying" url status=resp.status attempt delay
+                push!(retried_statuses, Int(resp.status))
                 sleep_fn(delay)
                 continue
             end
-            return (resp, nothing)
+            return (resp, nothing, (; retry_count=length(retried_statuses), retried_statuses))
         catch e
             last_err = sprint(showerror, e)
             if attempt >= max_retries
-                return (nothing, last_err)
+                return (
+                    nothing,
+                    last_err,
+                    (; retry_count=length(retried_statuses), retried_statuses),
+                )
             end
             @debug "retrying after exception" url attempt err=last_err
+            push!(retried_statuses, 0)   # 0 = exception / pre-server retry
             sleep_fn(base_delay * 2.0^attempt)
         end
     end
-    return (nothing, last_err)
+    return (nothing, last_err, (; retry_count=length(retried_statuses), retried_statuses))
 end
 
 # Deeply convert JSON3 objects/arrays to plain Dict{String,Any} / Vector{Any}
