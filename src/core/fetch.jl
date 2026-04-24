@@ -312,16 +312,17 @@ function fetch_paper!(
     # `want(s)` gates whether the source is even tried at lookup/candidate
     # time. `:strict` source_policy drops preprint routes up front — the
     # network call itself is skipped, not just the candidate pushed.
-    want(s) = let
-        configured = s in sources
-        if !configured
-            false
-        elseif source_policy === :strict && !(s in PUBLISHER_SOURCES)
-            false
-        else
-            true
+    want(s) =
+        let
+            configured = s in sources
+            if !configured
+                false
+            elseif source_policy === :strict && !(s in PUBLISHER_SOURCES)
+                false
+            else
+                true
+            end
         end
-    end
 
     # 1) Unpaywall
     if want(:unpaywall) && doi !== nothing && rt.email !== nothing
