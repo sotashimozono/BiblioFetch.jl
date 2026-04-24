@@ -17,7 +17,7 @@
 #
 # ```toml
 # [folder]
-# target = "~/bibliofetch-examples/dmrg_foundations"
+# target = "dmrg_foundations_papers"
 #
 # [fetch]
 # sources = ["unpaywall", "arxiv", "s2", "direct"]
@@ -119,12 +119,10 @@ length(job.refs), length(unique(r -> r.group, job.refs))
 #    correctly shows `ok: 18, pending: 2` — the `run` summary needs to
 #    gain the same third count.
 #
-# 2. **`target` is cwd-relative, not job-file-relative.** Running
-#    `bibliofetch run examples/dmrg-foundations-job.toml` from the repo
-#    root without an absolute `target` would have scattered PDFs into
-#    the repo. Absolute `~/...` paths in every example TOML work around
-#    this, but the real fix is to resolve relative `target` against the
-#    job file's directory.
+# 2. ~~**`target` is cwd-relative, not job-file-relative.**~~ Fixed in
+#    #37 — relative `target` now resolves against the job file's
+#    directory, matching Cargo / npm / tox / pre-commit behavior. Every
+#    `examples/*-job.toml` in this PR uses a plain relative target.
 #
 # 3. **Pre-arXiv papers without an OA alternative are unreachable
 #    without a TDM key.** White's 1992 and 1993 DMRG papers are on

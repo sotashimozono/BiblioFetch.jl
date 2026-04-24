@@ -2,4 +2,8 @@ docs/build/
 docs/src/assets/favicon.ico
 docs/src/assets/logo.png
 docs/src/examples/
+examples/papers/
+examples/graph_papers/
+examples/tdm_papers/
+examples/dmrg_foundations_papers/
 Manifest.toml

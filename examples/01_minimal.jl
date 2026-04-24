@@ -9,7 +9,7 @@
 #
 # ```toml
 # [folder]
-# target = "~/bibliofetch-examples/minimal_papers"
+# target = "papers"
 #
 # [doi]
 # list = [
@@ -21,15 +21,19 @@
 # (`[doi]`). Everything under `[fetch]` falls back to built-in defaults —
 # the standard `unpaywall / arxiv / direct` cascade.
 #
+# Relative `target` values resolve against the TOML file's directory
+# (not the caller's cwd), so running from anywhere drops PDFs next to
+# the job.
+#
 # ## Running from the shell
 #
 # ```sh
 # bibliofetch run examples/minimal-job.toml
 # ```
 #
-# A fresh `~/bibliofetch-examples/minimal_papers/` directory appears on
-# first run containing the fetched PDF and a parallel `.metadata/` folder
-# of per-entry TOML records.
+# A fresh `examples/papers/` directory appears on first run containing
+# the fetched PDF and a parallel `.metadata/` folder of per-entry TOML
+# records.
 #
 # ## Running from Julia
 #

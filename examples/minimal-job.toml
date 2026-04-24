@@ -2,13 +2,11 @@
 #
 #   bibliofetch run examples/minimal-job.toml
 #
-# The PDF lands at ~/bibliofetch-examples/minimal_papers/. Absolute `~`
-# paths keep the example runnable from any working directory; relative
-# `target` values currently resolve against `pwd()`, not this file's
-# directory (see docs for `load_job` behavior).
+# The PDF lands at examples/papers/. Relative `target` paths resolve
+# against this TOML's directory regardless of the caller's cwd.
 
 [folder]
-target = "~/bibliofetch-examples/minimal_papers"
+target = "papers"
 
 [doi]
 list = [
