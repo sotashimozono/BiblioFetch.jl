@@ -21,6 +21,7 @@ include("sources/arxiv.jl")
 include("sources/semantic_scholar.jl")   # abstracts + another OA PDF set
 include("sources/aps_tdm.jl")            # APS Harvest TDM (token-gated)
 include("sources/elsevier_tdm.jl")       # Elsevier ScienceDirect TDM (key-gated)
+include("sources/springer_oa.jl")        # Springer Nature OpenAccess (key-gated lookup)
 include("core/store.jl")
 include("core/fetch.jl")
 include("core/dedup.jl")          # depends on store + sha256 from fetch
@@ -51,6 +52,7 @@ export datacite_lookup
 export s2_lookup
 export aps_tdm_url, is_aps_doi
 export elsevier_tdm_url, is_elsevier_doi, elsevier_tdm_auth_headers
+export springer_oa_lookup, is_springer_doi
 export status, NetworkStatus, ProbeResult, is_reachable
 export cli_main
 # NOTE: `run` is intentionally not exported — call as `BiblioFetch.run(path)` to

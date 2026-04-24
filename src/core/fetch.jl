@@ -44,7 +44,7 @@ const DEFAULT_SOURCES = (:unpaywall, :arxiv, :direct)
 # `:aps` = APS Harvest TDM API (needs Bearer token in APS_API_KEY).
 # Like `:s2` it's opt-in; users who have institutional APS access turn it on
 # in their job's `[fetch].sources`.
-const KNOWN_SOURCES = (:unpaywall, :arxiv, :direct, :s2, :aps, :elsevier)
+const KNOWN_SOURCES = (:unpaywall, :arxiv, :direct, :s2, :aps, :elsevier, :springer)
 
 # Compute a hex-encoded SHA-256 of a file's byte stream. Used to dedup PDFs
 # that arrive via multiple DOI aliases (arxiv preprint DOI vs journal DOI).
@@ -313,6 +313,20 @@ function fetch_paper!(
         is_elsevier_doi(doi) &&
         !isempty(elsevier_tdm_auth_headers())
         push!(candidates, (:elsevier, elsevier_tdm_url(doi)))
+    end
+
+    # 6) Springer Nature OA — 10.1007/*, 10.1038/*, 10.1186/*, 10.1140/*.
+    # Two-step: the OA API gates whether this DOI is actually OA (the Nature
+    # portfolio is mixed), and returns the canonical link.springer.com PDF
+    # URL on hit. Springer's auth is via `?api_key=` query param on the
+    # lookup, so _source_extra_headers stays empty for :springer.
+    if want(:springer) &&
+        doi !== nothing &&
+        is_springer_doi(doi) &&
+        _springer_api_key(nothing) !== nothing
+        verbose && @info "→ Springer OA lookup" doi
+        sp_url, _ = springer_oa_lookup(doi; proxy=rt.proxy)
+        sp_url === nothing || push!(candidates, (:springer, sp_url))
     end
 
     used_source = :none

@@ -164,7 +164,7 @@ fetched_at = "2026-04-23T…"
 - [x] Per-host profile config; env var override
 - [ ] BibTeX export
 - [ ] Citation graph traversal (Crossref `reference` / `is-referenced-by-count`)
-- [ ] Publisher TDM APIs (APS, Elsevier, Springer) — legal bulk endpoints
+- [x] Publisher TDM APIs (APS, Elsevier, Springer OA) — legal bulk endpoints
 
 ---
 
