@@ -428,11 +428,7 @@ end
         mktempdir() do dir
             dest = joinpath(dir, "out.pdf")
             r = BiblioFetch._http_download_pdf(
-                base * "/p.pdf",
-                dest;
-                base_delay=0.01,
-                sleep_fn=(_)->nothing,
-                timeout=5,
+                base * "/p.pdf", dest; base_delay=0.01, sleep_fn=(_)->nothing, timeout=5
             )
             @test r.ok
             @test r.retry_count == 2

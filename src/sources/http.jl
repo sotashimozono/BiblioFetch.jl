@@ -85,7 +85,9 @@ function _http_get_with_retry(
                 sleep_fn(delay)
                 continue
             end
-            return (resp, nothing, (; retry_count=length(retried_statuses), retried_statuses))
+            return (
+                resp, nothing, (; retry_count=length(retried_statuses), retried_statuses)
+            )
         catch e
             last_err = sprint(showerror, e)
             if attempt >= max_retries

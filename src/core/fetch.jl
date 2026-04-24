@@ -381,7 +381,14 @@ function fetch_paper!(
         push!(
             attempts,
             AttemptLog(
-                src, url, r.ok, r.http_status, r.error, dt, r.retry_count, r.retried_statuses
+                src,
+                url,
+                r.ok,
+                r.http_status,
+                r.error,
+                dt,
+                r.retry_count,
+                r.retried_statuses,
             ),
         )
         if r.ok
