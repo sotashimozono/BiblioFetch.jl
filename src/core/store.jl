@@ -70,10 +70,11 @@ has_pdf(s::Store, key; group::AbstractString="") =
         isfile(p) && filesize(p) > 0
     end
 
-has_preprint(s::Store, key; group::AbstractString="") =
+function has_preprint(s::Store, key; group::AbstractString="")
     let p = preprint_pdf_path(s, key; group=group);
         isfile(p) && filesize(p) > 0
     end
+end
 
 # Locate an existing PDF for `key` regardless of group (for migrations / lookups).
 function find_pdf(s::Store, key)

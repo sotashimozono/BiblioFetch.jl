@@ -32,8 +32,7 @@ end
 
 function _bare_rt_aa(; email=nothing, proxy=nothing)
     return BiblioFetch.Runtime(
-        "test-host", "default", proxy, :none, missing, "/tmp/none",
-        email, :oa_only, nothing,
+        "test-host", "default", proxy, :none, missing, "/tmp/none", email, :oa_only, nothing
     )
 end
 
@@ -254,12 +253,7 @@ end
 
         rt = _bare_rt_aa()
         res = BiblioFetch.fetch_paper!(
-            store,
-            key;
-            rt=rt,
-            sources=[:unpaywall, :arxiv],
-            also_arxiv=true,
-            verbose=false,
+            store, key; rt=rt, sources=[:unpaywall, :arxiv], also_arxiv=true, verbose=false
         )
         @test res.ok
         md = BiblioFetch.read_metadata(store, key)
