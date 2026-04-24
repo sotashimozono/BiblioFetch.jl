@@ -65,6 +65,14 @@ function doctor(store::Store)
         end
         key = String(get(md, "key", ""))
         isempty(key) && continue
+
+        # Companion preprint PDFs (from [fetch].also_arxiv) are legitimate
+        # artifacts — register their paths as referenced so the
+        # orphan-PDF walk below doesn't flag them.
+        let pp = String(get(md, "preprint_pdf", ""))
+            isempty(pp) || isfile(pp) && push!(referenced_paths, abspath(pp))
+        end
+
         pdf = String(get(md, "pdf_path", ""))
         isempty(pdf) && continue
 

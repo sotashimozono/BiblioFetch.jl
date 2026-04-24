@@ -38,6 +38,7 @@ include("cli.jl")
 
 export detect_environment, load_config, effective_runtime
 export Store, open_store, list_entries, entry_info
+export pdf_path, preprint_pdf_path, has_preprint
 export normalize_key, is_doi, is_arxiv, is_arxiv_versions, parse_arxiv_version_spec
 export arxiv_latest_version, arxiv_list_versions
 export fetch_paper!, sync!

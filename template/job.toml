@@ -33,6 +33,10 @@ sources = ["unpaywall", "arxiv", "direct"]
 # source_policy = "lenient"   # "strict" → publisher/journal only, no arXiv fallback
 # on_fail       = "pending"   # "skip" (ignore misses) | "error" (abort the run)
 
+# Keep an arXiv preprint companion alongside every publisher-sourced primary.
+# See examples/07_also_arxiv.jl.
+# also_arxiv = false
+
 # Citation-graph expansion — off by default. When on, references extracted
 # from each fetched paper's metadata (Crossref / S2) are queued as new
 # entries, bounded by max_depth and max_refs_per_paper.
