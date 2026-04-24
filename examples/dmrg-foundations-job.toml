@@ -1,0 +1,79 @@
+# DMRG / MPS / finite-T foundations — dogfooding bibliography for
+# arXiv:2512.07923 (infinite-system finite-T via imaginary-time + random
+# sampling on the auxiliary basis).
+#
+# The 20 entries below cover:
+#
+#   * seed                  — the paper this bibliography supports
+#   * dmrg_origin           — White's two original DMRG papers
+#   * mps_review            — the canonical reviews a new reader reaches for
+#   * infinite_mps          — iTEBD / iDMRG / VUMPS (the infinite tangent)
+#   * tdvp                  — time-dependent variational principle on MPS
+#   * finite_temperature    — purification, ancilla DMRG, METTS
+#   * time_evolution        — TEBD + tDMRG (finite-system companions)
+#
+# Run from Todai / anywhere with the defaults set:
+#
+#   BIBLIOFETCH_CONFIG=/path/to/config.toml \
+#       bibliofetch run examples/dmrg-foundations-job.toml
+#
+# Most paywalled DOIs are expected to fall through to `:arxiv` —
+# `fetch_paper!` extracts the arXiv id from Crossref `relation.has-preprint`
+# metadata or via title search when no explicit preprint is registered.
+
+[folder]
+target = "~/bibliofetch-examples/dmrg_foundations"
+
+[fetch]
+# `:s2` supplements Crossref reference lists for graph expansion; not
+# needed here since we're not walking citations, but kept in so S2's
+# abstract field populates each metadata TOML.
+sources = ["unpaywall", "arxiv", "s2", "direct"]
+
+[doi.seed]
+list = [
+    "arxiv:2512.07923",   # Shimozono (2025) — infinite finite-T, random sampling
+]
+
+[doi.dmrg_origin]
+list = [
+    "10.1103/PhysRevLett.69.2863",   # White (1992) — original DMRG PRL
+    "10.1103/PhysRevB.48.10345",     # White (1993) — full DMRG paper
+]
+
+[doi.mps_review]
+list = [
+    "10.1016/j.aop.2010.09.012",     # Schollwöck (2011) — DMRG in the age of MPS
+    "arxiv:1306.2164",               # Orús (2014) — practical TN introduction
+    "10.1103/RevModPhys.77.259",     # Schollwöck (2005) — RMP DMRG review
+]
+
+[doi.infinite_mps]
+list = [
+    "10.1103/PhysRevLett.98.070201", # Vidal (2007) — iTEBD
+    "10.1103/PhysRevB.78.155117",    # Orús & Vidal (2008) — iTEBD refined
+    "arxiv:0804.2509",               # McCulloch (2008) — iDMRG
+    "10.1103/PhysRevA.78.012356",    # Crosswhite & Bacon (2008) — MPO on infinite lattices
+    "10.1103/PhysRevB.97.045145",    # Zauner-Stauber et al. (2018) — VUMPS
+]
+
+[doi.tdvp]
+list = [
+    "10.1103/PhysRevLett.107.070601",  # Haegeman et al. (2011) — TDVP on MPS
+    "10.1103/PhysRevB.94.165116",      # Haegeman et al. (2016) — unifying TDVP algorithms
+]
+
+[doi.finite_temperature]
+list = [
+    "10.1103/PhysRevLett.93.207205",   # Zwolak & Vidal (2004) — mixed-state MPS via purification
+    "10.1103/PhysRevB.72.220401",      # Feiguin & White (2005) — ancilla DMRG finite-T
+    "10.1103/PhysRevLett.102.190601",  # White (2009) — METTS
+    "10.1088/1367-2630/12/5/055026",   # Stoudenmire & White (2010) — METTS practical
+    "10.1103/PhysRevLett.108.227206",  # Karrasch, Bardarson, Moore (2012) — finite-T tDMRG
+]
+
+[doi.time_evolution]
+list = [
+    "10.1103/PhysRevLett.93.040502",   # Vidal (2004) — efficient classical simulation
+    "10.1088/1742-5468/2004/04/P04005",# Daley, Kollath, Schollwöck, Vidal (2004) — tDMRG
+]
