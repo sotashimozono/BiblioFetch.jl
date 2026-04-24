@@ -1,0 +1,28 @@
+# arXiv version-spec pseudo-refs — one pseudo-ref expands into one
+# FetchEntry per matching version before the run loop starts.
+#
+#   bibliofetch run examples/arxiv-versions-job.toml
+#
+# The combination below fetches:
+#
+#   * 2 entries from Schollwöck's DMRG review  (v1, v2 — @all = every version)
+#   * 2 entries from Attention is All You Need (v1 and v7 — the extremes)
+#   * 1 entry for the user's paper             (plain single-version ref)
+#
+# Every expanded version lands as its own metadata TOML + PDF under the
+# store's target, with the `raw` field set to the original `@`-spec so
+# provenance stays visible in `bibliofetch info`.
+
+[folder]
+target = "arxiv_versions_papers"
+
+[doi.history]
+list = [
+    "arxiv:1008.3477@all",          # Schollwöck MPS review — both versions
+    "arxiv:1706.03762@v1,v7",       # Transformer paper — v1 submitted vs final
+]
+
+[doi.current]
+list = [
+    "arxiv:2512.07923",              # single latest version
+]

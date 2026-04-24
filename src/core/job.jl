@@ -320,7 +320,12 @@ function run(job::FetchJob; verbose::Bool=true, runtime::Union{Runtime,Nothing}=
     )
 
     t0 = time()
-    entries = job.refs
+    # arXiv version-spec pseudo-refs (`arxiv:<id>@all` / `@v1,v3`) live in
+    # `job.refs` with their `@…` suffix intact. Expand them in-place into
+    # one FetchEntry per version before the first batch runs, so the
+    # downstream fetch loop only sees normal single-ref entries. The
+    # expansion hits arxiv.org once per @-spec for the `@all` case.
+    entries = _expand_arxiv_version_specs(job.refs, rt_job, logio, verbose)
     _run_batch!(entries, store, rt_job, job, logio, verbose)
 
     # on_fail=:error — throw after the seed batch if any ref didn't make
@@ -405,6 +410,56 @@ function _collect_references(store, entries, seen_keys, d::Int, job::FetchJob)
         end
     end
     return new_entries
+end
+
+# Expand any `arxiv:<id>@all` / `arxiv:<id>@v1,v3` pseudo-refs in `refs`
+# into one FetchEntry per version. Non-pseudo refs pass through verbatim,
+# preserving input order. For `@all` we call `arxiv_latest_version` once per
+# pseudo-ref; the entry's base version list (1..latest) is materialized
+# into keys of the form `arxiv:<id>v<N>`. Each produced child keeps the
+# parent's `group` and copies `raw` as the original `@...` string so the
+# provenance stays visible in metadata.
+function _expand_arxiv_version_specs(refs, rt, logio, verbose)
+    out = FetchEntry[]
+    for e in refs
+        if !occursin('@', e.key)
+            push!(out, e)
+            continue
+        end
+        base_key, spec = try
+            parse_arxiv_version_spec(e.key)
+        catch err
+            _logln(logio, "skip invalid version-spec ref $(e.key): $(sprint(showerror, err))")
+            continue
+        end
+        # `base_key` is `arxiv:<id>`; strip the prefix for API / URL building.
+        id = startswith(base_key, "arxiv:") ? base_key[7:end] : base_key
+        versions = if spec === :all
+            verbose && @info "→ arXiv version discovery" id
+            vs = arxiv_list_versions(id; proxy=rt.proxy)
+            if isempty(vs)
+                _logln(logio, "version discovery failed for $(e.key) — skipping")
+                Int[]
+            else
+                vs
+            end
+        else
+            spec::Vector{Int}
+        end
+        for n in versions
+            versioned_key = base_key * "v" * string(n)
+            child = FetchEntry(
+                versioned_key, e.group, e.raw; depth=e.depth, referenced_by=e.referenced_by
+            )
+            push!(out, child)
+        end
+        _logln(
+            logio,
+            "expand  @-spec  $(e.key) → $(length(versions)) version(s): " *
+            (isempty(versions) ? "-" : join(("v" * string(n) for n in versions), ", ")),
+        )
+    end
+    return out
 end
 
 # on_fail=:error raises after a batch settles so we don't leak running

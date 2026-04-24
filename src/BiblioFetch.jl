@@ -38,7 +38,8 @@ include("cli.jl")
 
 export detect_environment, load_config, effective_runtime
 export Store, open_store, list_entries, entry_info
-export normalize_key, is_doi, is_arxiv
+export normalize_key, is_doi, is_arxiv, is_arxiv_versions, parse_arxiv_version_spec
+export arxiv_latest_version, arxiv_list_versions
 export fetch_paper!, sync!
 export FetchEntry, FetchJob, FetchJobResult, AttemptLog, load_job
 export bibtex_entry, write_bibtex
