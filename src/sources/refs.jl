@@ -52,8 +52,7 @@ Throws `ArgumentError` when `s` is not a well-formed pseudo-ref.
 """
 function parse_arxiv_version_spec(s::AbstractString)
     t = strip(s)
-    is_arxiv_versions(t) ||
-        throw(ArgumentError("not an arxiv version-spec ref: $(s)"))
+    is_arxiv_versions(t) || throw(ArgumentError("not an arxiv version-spec ref: $(s)"))
     # Split on the *last* '@' so a legacy slash-id doesn't confuse us.
     at = findlast('@', t)
     head = String(t[1:(at - 1)])

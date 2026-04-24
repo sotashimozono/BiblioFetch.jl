@@ -112,9 +112,7 @@ function _arxiv_v_handler(req::HTTP.Request)
             200, ["Content-Type" => "application/atom+xml"], _ATOM_LATEST_V3
         )
     elseif occursin("id_list=2301.99999", p)
-        return HTTP.Response(
-            200, ["Content-Type" => "application/atom+xml"], _ATOM_EMPTY
-        )
+        return HTTP.Response(200, ["Content-Type" => "application/atom+xml"], _ATOM_EMPTY)
     elseif occursin("id_list=2301.00456", p)
         return HTTP.Response(
             200, ["Content-Type" => "application/atom+xml"], _ATOM_NO_V_SUFFIX
@@ -203,9 +201,7 @@ end
       """,
             )
         end
-        rt = withenv(
-            "HTTP_PROXY" => nothing, "HTTPS_PROXY" => nothing
-        ) do
+        rt = withenv("HTTP_PROXY" => nothing, "HTTPS_PROXY" => nothing) do
             BiblioFetch.detect_environment(; probe=false)
         end
         result = BiblioFetch.run(job_path; verbose=false, runtime=rt)

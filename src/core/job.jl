@@ -429,7 +429,10 @@ function _expand_arxiv_version_specs(refs, rt, logio, verbose)
         base_key, spec = try
             parse_arxiv_version_spec(e.key)
         catch err
-            _logln(logio, "skip invalid version-spec ref $(e.key): $(sprint(showerror, err))")
+            _logln(
+                logio,
+                "skip invalid version-spec ref $(e.key): $(sprint(showerror, err))",
+            )
             continue
         end
         # `base_key` is `arxiv:<id>`; strip the prefix for API / URL building.
