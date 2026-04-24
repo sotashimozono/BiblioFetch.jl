@@ -16,7 +16,7 @@
 # if you really want second-hop transitive references.
 
 [folder]
-target = "~/bibliofetch-examples/graph_papers"
+target = "graph_papers"
 
 [fetch]
 sources = ["unpaywall", "arxiv", "s2", "direct"]
