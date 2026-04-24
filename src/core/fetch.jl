@@ -2,6 +2,12 @@
     AttemptLog
 
 One source attempt during a fetch — useful for diagnosing why a key failed.
+`retry_count` is the number of retries burned inside this attempt (driven by
+`retry_statuses` / exceptions in `_http_get_with_retry`); `retried_statuses`
+is the list of HTTP statuses that triggered each retry. `0` inside
+`retried_statuses` stands for a pre-server / exception retry (no response
+arrived) — the request never reached HTTP. When a source completed on the
+first try, `retry_count == 0` and `retried_statuses` is empty.
 """
 struct AttemptLog
     source::Symbol                       # :unpaywall | :arxiv | :direct
@@ -10,6 +16,14 @@ struct AttemptLog
     http_status::Union{Int,Nothing}
     error::Union{String,Nothing}
     duration_s::Float64
+    retry_count::Int
+    retried_statuses::Vector{Int}
+end
+
+# Back-compat constructor for the old 6-arg form (no retry info). Used by
+# job.jl's dummy AttemptLog[] fill and anywhere we don't have retry data.
+function AttemptLog(source, url, ok, http_status, error, duration_s)
+    return AttemptLog(source, url, ok, http_status, error, duration_s, 0, Int[])
 end
 
 """
@@ -98,7 +112,7 @@ function _http_download_pdf(
     ]
     append!(headers, extra_headers)
 
-    resp, err = _http_get_with_retry(
+    resp, err, trace = _http_get_with_retry(
         url;
         proxy=proxy,
         request_kwargs=(;
@@ -112,12 +126,26 @@ function _http_download_pdf(
         base_delay=base_delay,
         sleep_fn=sleep_fn,
     )
+    rc = trace.retry_count
+    rs = trace.retried_statuses
     if resp === nothing
-        return (ok=false, http_status=nothing, error="http: $(err)")
+        return (
+            ok=false,
+            http_status=nothing,
+            error="http: $(err)",
+            retry_count=rc,
+            retried_statuses=rs,
+        )
     end
     status_code = Int(resp.status)
     if !(200 <= status_code < 300)
-        return (ok=false, http_status=status_code, error="http status $(status_code)")
+        return (
+            ok=false,
+            http_status=status_code,
+            error="http status $(status_code)",
+            retry_count=rc,
+            retried_statuses=rs,
+        )
     end
     try
         open(tmp, "w") do io
@@ -125,14 +153,28 @@ function _http_download_pdf(
         end
     catch e
         isfile(tmp) && rm(tmp; force=true)
-        return (ok=false, http_status=status_code, error="write: " * sprint(showerror, e))
+        return (
+            ok=false,
+            http_status=status_code,
+            error="write: " * sprint(showerror, e),
+            retry_count=rc,
+            retried_statuses=rs,
+        )
     end
     if !_looks_like_pdf(tmp)
         rm(tmp; force=true)
-        return (ok=false, http_status=status_code, error="not a PDF (got HTML/landing)")
+        return (
+            ok=false,
+            http_status=status_code,
+            error="not a PDF (got HTML/landing)",
+            retry_count=rc,
+            retried_statuses=rs,
+        )
     end
     mv(tmp, dest; force=true)
-    return (ok=true, http_status=status_code, error=nothing)
+    return (
+        ok=true, http_status=status_code, error=nothing, retry_count=rc, retried_statuses=rs
+    )
 end
 
 # ---- orchestration ----
@@ -336,7 +378,19 @@ function fetch_paper!(
         extra = _source_extra_headers(src)
         r = _http_download_pdf(url, dest; proxy=rt.proxy, extra_headers=extra)
         dt = time() - t0
-        push!(attempts, AttemptLog(src, url, r.ok, r.http_status, r.error, dt))
+        push!(
+            attempts,
+            AttemptLog(
+                src,
+                url,
+                r.ok,
+                r.http_status,
+                r.error,
+                dt,
+                r.retry_count,
+                r.retried_statuses,
+            ),
+        )
         if r.ok
             used_source = src
             break
@@ -391,6 +445,12 @@ function _attempts_to_dict(a::AttemptLog)
     )
     a.http_status === nothing || (d["http_status"] = a.http_status)
     a.error === nothing || (d["error"] = a.error)
+    # Keep the TOML lean on the common happy path — only serialize retry
+    # info when something actually retried.
+    if a.retry_count > 0
+        d["retry_count"] = a.retry_count
+        isempty(a.retried_statuses) || (d["retried_statuses"] = a.retried_statuses)
+    end
     return d
 end
 

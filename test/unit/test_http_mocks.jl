@@ -352,3 +352,103 @@ end
     r4 = HTTP.Response(200, [], "")
     @test BiblioFetch._parse_retry_after(r4) === nothing    # no header
 end
+
+# --- retry telemetry (third tuple element of _http_get_with_retry) ---
+
+@testset "retry telemetry: no retry → count=0, empty retried_statuses" begin
+    handler = (_req) -> HTTP.Response(200, ["Content-Type" => "text/plain"], "ok")
+    _with_mock(handler) do base
+        _, _, trace = BiblioFetch._http_get_with_retry(
+            base * "/"; base_delay=0.01, sleep_fn=(_)->nothing
+        )
+        @test trace.retry_count == 0
+        @test isempty(trace.retried_statuses)
+    end
+end
+
+@testset "retry telemetry: retried statuses recorded in order" begin
+    # 503 then 429 then 200 → two retries, statuses [503, 429]
+    calls = Ref(0)
+    handler = function (_req)
+        calls[] += 1
+        calls[] == 1 && return HTTP.Response(503, [], "svc")
+        calls[] == 2 && return HTTP.Response(429, [], "throttled")
+        return HTTP.Response(200, ["Content-Type" => "text/plain"], "ok")
+    end
+    _with_mock(handler) do base
+        resp, _, trace = BiblioFetch._http_get_with_retry(
+            base * "/"; base_delay=0.01, sleep_fn=(_)->nothing
+        )
+        @test resp !== nothing && resp.status == 200
+        @test trace.retry_count == 2
+        @test trace.retried_statuses == [503, 429]
+    end
+end
+
+@testset "retry telemetry: exhausted budget keeps final status out of retried list" begin
+    # Every call returns 429; we get back the last 429 response, and the
+    # retried_statuses records the *earlier* ones that triggered retries.
+    handler = (_req) -> HTTP.Response(429, [], "always throttled")
+    _with_mock(handler) do base
+        resp, _, trace = BiblioFetch._http_get_with_retry(
+            base * "/"; max_retries=3, base_delay=0.01, sleep_fn=(_)->nothing
+        )
+        @test resp.status == 429
+        @test trace.retry_count == 3
+        @test trace.retried_statuses == [429, 429, 429]
+    end
+end
+
+@testset "retry telemetry: exception-driven retry uses 0 sentinel" begin
+    # Point at a dead port: every attempt raises a connection error. After
+    # max_retries, we return (nothing, err_msg, trace) with retry_count ==
+    # max_retries and retried_statuses filled with zeros.
+    dead_port = 1                  # reserved; TCP connect to loopback:1 fails fast
+    _, _, trace = BiblioFetch._http_get_with_retry(
+        "http://127.0.0.1:$(dead_port)/";
+        max_retries=2,
+        base_delay=0.01,
+        sleep_fn=(_)->nothing,
+    )
+    @test trace.retry_count == 2
+    @test all(==(0), trace.retried_statuses)
+end
+
+# --- retry telemetry → AttemptLog round-trip through _http_download_pdf ---
+
+@testset "_http_download_pdf: carries retry_count + retried_statuses in result" begin
+    calls = Ref(0)
+    handler = function (_req::HTTP.Request)
+        calls[] += 1
+        calls[] <= 2 && return HTTP.Response(503, [], "warming")
+        body = "%PDF-1.5\n" * String(rand(UInt8, 2048))
+        return HTTP.Response(200, ["Content-Type" => "application/pdf"], body)
+    end
+    _with_mock(handler) do base
+        mktempdir() do dir
+            dest = joinpath(dir, "out.pdf")
+            r = BiblioFetch._http_download_pdf(
+                base * "/p.pdf", dest; base_delay=0.01, sleep_fn=(_)->nothing, timeout=5
+            )
+            @test r.ok
+            @test r.retry_count == 2
+            @test r.retried_statuses == [503, 503]
+        end
+    end
+end
+
+@testset "AttemptLog: zero-retry happy path serializes without retry keys" begin
+    a = BiblioFetch.AttemptLog(:unpaywall, "https://ex", true, 200, nothing, 1.23)
+    d = BiblioFetch._attempts_to_dict(a)
+    @test !haskey(d, "retry_count")
+    @test !haskey(d, "retried_statuses")
+end
+
+@testset "AttemptLog: retry info serializes when present" begin
+    a = BiblioFetch.AttemptLog(
+        :unpaywall, "https://ex", true, 200, nothing, 2.0, 3, [429, 429, 503]
+    )
+    d = BiblioFetch._attempts_to_dict(a)
+    @test d["retry_count"] == 3
+    @test d["retried_statuses"] == [429, 429, 503]
+end
