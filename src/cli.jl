@@ -320,11 +320,22 @@ function _format_info_entry(md::AbstractDict; now_dt::Dates.DateTime=Dates.now()
             status = get(a, "http_status", nothing)
             dur = Float64(get(a, "duration_s", 0.0))
             aerr = String(get(a, "error", ""))
+            retries = Int(get(a, "retry_count", 0))
+            retried = get(a, "retried_statuses", nothing)
             mark = ok ? "✓" : "✗"
             parts = String[]
             isempty(url) || push!(parts, _truncate(url, 60))
             status === nothing || push!(parts, string("(", Int(status), ")"))
             push!(parts, @sprintf("%.2fs", dur))
+            if retries > 0
+                trace = if retried isa AbstractVector && !isempty(retried)
+                    # 0 stands for a pre-server / exception retry; render as "net"
+                    "[" * join((x == 0 ? "net" : string(Int(x)) for x in retried), ",") * "]"
+                else
+                    ""
+                end
+                push!(parts, "retried " * string(retries) * "× " * trace)
+            end
             ok || isempty(aerr) || push!(parts, aerr)
             @printf(io, "    %s %-*s %s\n", mark, src_w, src, join(parts, "  "))
         end
