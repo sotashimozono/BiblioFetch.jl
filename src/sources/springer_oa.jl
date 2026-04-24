@@ -41,8 +41,9 @@ end
 # Canonical public PDF URL for a Springer OA article. Works for every
 # Springer Nature imprint's OA content — the OA API's own `url` array
 # sometimes omits a direct PDF entry, so we don't rely on it.
-_springer_pdf_url(doi::AbstractString) =
+function _springer_pdf_url(doi::AbstractString)
     "https://link.springer.com/content/pdf/" * String(doi) * ".pdf"
+end
 
 # API key lookup: explicit kwarg wins, then $SPRINGER_API_KEY.
 function _springer_api_key(api_key)

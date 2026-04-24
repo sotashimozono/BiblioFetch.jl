@@ -104,8 +104,7 @@ end
     _with_mock_sp(handler) do base
         withenv("SPRINGER_API_KEY" => "ENVKEY") do
             pdf, _ = BiblioFetch.springer_oa_lookup("10.1038/nature00001"; base_url=base)
-            @test pdf ==
-                "https://link.springer.com/content/pdf/10.1038/nature00001.pdf"
+            @test pdf == "https://link.springer.com/content/pdf/10.1038/nature00001.pdf"
         end
     end
 end
