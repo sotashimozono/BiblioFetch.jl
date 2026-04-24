@@ -173,7 +173,7 @@ fetched_at = "2026-04-23T…"
 - [x] BibTeX export
 - [x] Citation graph traversal (Crossref `reference` / `is-referenced-by-count`)
 - [x] Publisher TDM APIs (APS, Elsevier, Springer OA) — legal bulk endpoints
-- [ ] `BiblioFetch.generate(path)` — onboarding helper that drops the `template/` skeleton into a new project directory
+- [x] `BiblioFetch.generate(path)` — onboarding helper that drops the `template/` skeleton into a new project directory
 
 ---
 

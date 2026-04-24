@@ -4,6 +4,7 @@ BiblioFetch — bulk literature fetcher (DOI / arXiv → local PDF store)
 Usage:
   bibliofetch env                         Show detected runtime (hostname, proxy, mode)
   bibliofetch status [--timeout <s>]      Probe supported APIs; report what's reachable now
+  bibliofetch init <path> [--force]       Create a new BiblioFetch project (job.toml + README)
   bibliofetch run <job.toml>              Execute a job TOML (groups, parallel, log)
   bibliofetch bib <dir> [--out <path>]    Export BibTeX for all ok entries in a store root
   bibliofetch import <refs.bib>           Queue DOIs / arXiv ids from an existing .bib file
@@ -749,6 +750,23 @@ function _cmd_run(args)
     return n_ok == length(result.entries) ? 0 : 1
 end
 
+function _cmd_init(args)
+    force = "--force" in args
+    rest = filter(a -> !startswith(a, "--"), args)
+    isempty(rest) && (println(stderr, "init: need a project path"); return 2)
+    path = rest[1]
+    try
+        dest = generate(path; force=force)
+        println("created BiblioFetch project at ", dest)
+        println("  edit $(joinpath(dest, "job.toml")) — then:")
+        println("  bibliofetch run $(joinpath(dest, "job.toml"))")
+        return 0
+    catch err
+        println(stderr, "init: ", sprint(showerror, err))
+        return 1
+    end
+end
+
 """
     cli_main(args = ARGS) -> Int
 
@@ -765,6 +783,8 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
             _cmd_env(rest)
         elseif cmd == "status"
             _cmd_status(rest)
+        elseif cmd == "init"
+            _cmd_init(rest)
         elseif cmd == "run"
             _cmd_run(rest)
         elseif cmd == "bib"

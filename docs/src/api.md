@@ -38,6 +38,12 @@ list_entries
 entry_info
 ```
 
+## Project skeleton
+
+```@docs
+generate
+```
+
 ## Fetch
 
 ```@docs

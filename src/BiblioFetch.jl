@@ -23,6 +23,7 @@ include("sources/aps_tdm.jl")            # APS Harvest TDM (token-gated)
 include("sources/elsevier_tdm.jl")       # Elsevier ScienceDirect TDM (key-gated)
 include("sources/springer_oa.jl")        # Springer Nature OpenAccess (key-gated lookup)
 include("core/store.jl")
+include("core/generate.jl")      # project-skeleton generator (template/ source)
 include("core/fetch.jl")
 include("core/dedup.jl")          # depends on store + sha256 from fetch
 include("core/doctor.jl")         # depends on store + sha256_file from fetch
@@ -42,6 +43,7 @@ export pdf_path, preprint_pdf_path, has_preprint
 export normalize_key, is_doi, is_arxiv, is_arxiv_versions, parse_arxiv_version_spec
 export arxiv_latest_version, arxiv_list_versions
 export fetch_paper!, sync!
+export generate
 export FetchEntry, FetchJob, FetchJobResult, AttemptLog, load_job
 export bibtex_entry, write_bibtex
 export BibEntry, parse_bibtex, bibentry_to_ref, import_bib!
