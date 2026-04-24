@@ -484,10 +484,21 @@ end
 function Base.show(io::IO, ::MIME"text/plain", r::FetchJobResult)
     n_ok = count(e -> e.status === :ok, r.entries)
     n_fail = count(e -> e.status === :failed, r.entries)
+    # :pending = deferred entries (no candidate or all network-level errors).
+    # `sync` retries these automatically; distinguishing them from :failed
+    # in the summary keeps the one-liner honest — earlier versions printed
+    # `(ok=N failed=0)` even when ✗ symbols were rendered for deferred
+    # refs. Matches `bibliofetch stats` vocabulary now.
+    n_pending = count(e -> e.status === :pending, r.entries)
+    summary = if n_fail == 0 && n_pending == 0
+        "(ok=$(n_ok) failed=0)"   # backward-compat one-liner on full success
+    else
+        "(ok=$(n_ok) failed=$(n_fail) pending=$(n_pending))"
+    end
     println(io, "BiblioFetch job '", r.job.name, "'")
     println(io, "  target   : ", r.job.target)
     println(io, "  log      : ", r.job.log_file)
-    println(io, "  refs     : ", length(r.entries), "  (ok=", n_ok, " failed=", n_fail, ")")
+    println(io, "  refs     : ", length(r.entries), "  ", summary)
     println(io, "  elapsed  : ", round(r.elapsed; digits=2), "s")
     if !isempty(r.job.duplicates)
         println(io, "  duplicates: ", length(r.job.duplicates), " (first occurrence kept)")

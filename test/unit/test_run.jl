@@ -74,7 +74,51 @@ using Test
         @test occursin("run start", log_txt)
         @test occursin("run end", log_txt)
         @test occursin("ok=0/2", log_txt)
+
+        # Regression for #34 — the FetchJobResult summary must surface
+        # pending entries so the one-liner matches what `bibliofetch stats`
+        # would show. Before the fix, `(ok=0 failed=0)` was printed even
+        # when every ref was deferred.
+        summary = sprint(show, MIME("text/plain"), result)
+        @test occursin("ok=0", summary)
+        @test occursin("failed=0", summary)
+        @test occursin("pending=2", summary)
     end
+end
+
+@testset "FetchJobResult show: full success keeps backward-compat one-liner" begin
+    # On a fully-successful run neither pending nor failed is interesting,
+    # so we collapse to `(ok=N failed=0)` rather than spamming `pending=0`.
+    # Construct the result object directly — no network I/O needed.
+    job = BiblioFetch.FetchJob(
+        "t",                          # name
+        "/tmp/none",                  # target
+        nothing,                      # bibtex
+        "/tmp/none/run.log",          # log_file
+        nothing,                      # email
+        nothing,                      # proxy
+        1,                            # parallel
+        false,                        # force
+        [:arxiv],                     # sources
+        false,                        # strict_duplicates
+        false,                        # follow_references
+        0,                            # max_depth
+        50,                           # max_refs_per_paper
+        BiblioFetch.FetchEntry[],     # refs
+        NTuple{3,String}[],           # duplicates
+    )
+    entries = [
+        BiblioFetch.FetchEntry("arxiv:1", "", "arxiv:1"),
+        BiblioFetch.FetchEntry("arxiv:2", "", "arxiv:2"),
+    ]
+    for e in entries
+        e.status = :ok
+        e.source = :arxiv
+    end
+    result = BiblioFetch.FetchJobResult(job, entries, 1.0)
+    summary = sprint(show, MIME("text/plain"), result)
+    @test occursin("(ok=2 failed=0)", summary)
+    @test !occursin("pending", summary)
 end
 
 @testset "run: bibtex file is written when [folder].bibtex is set" begin
