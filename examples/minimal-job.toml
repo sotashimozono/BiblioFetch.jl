@@ -1,0 +1,19 @@
+# Minimal BiblioFetch job — 1 reference, defaults everywhere.
+#
+#   bibliofetch run examples/minimal-job.toml
+#
+# The PDF lands at ~/bibliofetch-examples/minimal_papers/. Absolute `~`
+# paths keep the example runnable from any working directory; relative
+# `target` values currently resolve against `pwd()`, not this file's
+# directory (see docs for `load_job` behavior).
+
+[folder]
+target = "~/bibliofetch-examples/minimal_papers"
+
+[doi]
+list = [
+    # Schollwöck, "The density-matrix renormalization group in the age of
+    # matrix product states" — canonical MPS/DMRG review, always reachable
+    # via the arXiv route.
+    "arxiv:1008.3477",
+]

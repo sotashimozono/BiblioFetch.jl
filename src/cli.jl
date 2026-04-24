@@ -29,6 +29,10 @@ Reference forms:
 Environment overrides config file:
   HTTPS_PROXY / HTTP_PROXY       explicit proxy
   BIBLIOFETCH_CONFIG             path to config.toml (default ~/.config/bibliofetch/config.toml)
+
+Getting started:
+  Config template ships at `config/config.toml` in this package. Copy it to
+  ~/.config/bibliofetch/config.toml and edit. Runnable demo jobs in `examples/`.
 """
 
 function _read_refs_file(path::AbstractString)
@@ -47,18 +51,11 @@ function _cmd_env(_args)
     println()
     # helpful hints
     if rt.config_path === nothing
-        println("\nHint: no config file at $(DEFAULT_CONFIG_PATH). Example:")
-        println("""
-          [defaults]
-          email = "souta.shimozono@gmail.com"
-          store_root = "~/papers"
-
-          [profiles.panza]
-          proxy = "http://proxy.univ.example:8080"
-
-          [profiles.remote_host]
-          proxy = "http://localhost:18080"   # via  ssh -R 18080:proxy.univ:8080
-        """)
+        template_path = joinpath(pkgdir(BiblioFetch), "config", "config.toml")
+        println("\nHint: no config file at $(DEFAULT_CONFIG_PATH).")
+        println("  A commented template ships with the package:")
+        println("    cp $(template_path) $(DEFAULT_CONFIG_PATH)")
+        println("  then edit email / store_root / profiles to taste.")
     end
     if rt.email === nothing
         println("\nNote: email is unset — Unpaywall (OA lookup) will be skipped.")

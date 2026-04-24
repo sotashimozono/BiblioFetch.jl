@@ -95,21 +95,29 @@ directory full of HTML files pretending to be PDFs.
 
 ### Config example
 
-`~/.config/bibliofetch/config.toml`:
+A commented template ships at [`config/config.toml`](config/config.toml). Copy it once:
 
-```toml
-[defaults]
-email      = "you@example.com"
-store_root = "~/papers"
+```bash
+mkdir -p ~/.config/bibliofetch
+cp "$(julia -e 'using BiblioFetch; print(pkgdir(BiblioFetch))')/config/config.toml" \
+   ~/.config/bibliofetch/config.toml
+```
 
-[profiles.laptop]                         # local machine — proxy reachable directly
-proxy = "http://proxy.univ.example:8080"
+The template covers both `[defaults]` and per-host `[profiles.<hostname>]`
+examples (proxy, reverse-tunnel, store_root overrides). `bibliofetch env`
+points at it when no config is found.
 
-[profiles.compute-node]                   # ssh'd host — same proxy via reverse tunnel
-proxy = "http://localhost:18080"
+### Examples
 
-[profiles.default]
-# Hosts with no matching profile fall here (OA-only mode).
+Runnable demo jobs ship in [`examples/`](examples/) and are published as
+narrated walkthroughs in the docs:
+
+- [`minimal-job.toml`](examples/minimal-job.toml) — one DOI, all defaults
+- [`citation-graph-job.toml`](examples/citation-graph-job.toml) — seed + one-hop reference graph
+- [`publisher-tdm-job.toml`](examples/publisher-tdm-job.toml) — APS / Elsevier / Springer routes
+
+```bash
+bibliofetch run examples/minimal-job.toml
 ```
 
 ### SSH reverse tunnel
@@ -162,9 +170,10 @@ fetched_at = "2026-04-23T…"
 - [x] `env` / `add` / `sync` / `fetch` / `list` / `info` CLI commands
 - [x] Unpaywall + arXiv + proxy direct-landing cascade with `%PDF` verification
 - [x] Per-host profile config; env var override
-- [ ] BibTeX export
-- [ ] Citation graph traversal (Crossref `reference` / `is-referenced-by-count`)
+- [x] BibTeX export
+- [x] Citation graph traversal (Crossref `reference` / `is-referenced-by-count`)
 - [x] Publisher TDM APIs (APS, Elsevier, Springer OA) — legal bulk endpoints
+- [ ] `BiblioFetch.generate(path)` — onboarding helper that drops the `template/` skeleton into a new project directory
 
 ---
 

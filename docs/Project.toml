@@ -1,6 +1,7 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 BiblioFetch = "762df351-a244-4190-a0f4-a80c2d45f387"
 
 [sources]

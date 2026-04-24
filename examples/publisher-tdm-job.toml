@@ -1,0 +1,33 @@
+# Publisher TDM (authenticated) — APS / Elsevier / Springer.
+#
+# Every paywalled paper below is reachable through one of the publisher
+# TDM endpoints. Nothing here will fetch without the matching API key set
+# in the environment:
+#
+#   export APS_API_KEY=…            # free: email apsombudsman@aps.org
+#   export ELSEVIER_API_KEY=…       # free: dev.elsevier.com
+#   export SPRINGER_API_KEY=…       # free: dev.springernature.com
+#
+# Then:
+#
+#   bibliofetch run examples/publisher-tdm-job.toml
+#
+# Each `:<publisher>` source is skipped automatically when its key is not
+# set, so partial configurations are safe — unkeyed DOIs just fall through
+# to `:unpaywall` / `:arxiv` / `:direct` like any other reference.
+
+[folder]
+target = "~/bibliofetch-examples/tdm_papers"
+
+[fetch]
+sources = ["unpaywall", "arxiv", "aps", "elsevier", "springer", "direct"]
+
+[doi]
+# One canonical DOI per publisher. All three are paywalled journal
+# articles that nonetheless have an arXiv preprint, so even without any
+# API key the `:arxiv` route will still reach the preprint version.
+list = [
+    "10.1103/PhysRevB.99.214433",           # APS — PRB
+    "10.1016/j.aop.2010.09.012",            # Elsevier — Annals of Physics (MPS review)
+    "10.1007/s11538-013-9822-9",            # Springer — Bull. Math. Biol.
+]
