@@ -1,0 +1,34 @@
+# Citation-graph expansion — one seed paper, BiblioFetch walks its
+# references one hop and fetches each.
+#
+#   bibliofetch run examples/citation-graph-job.toml
+#
+# `:s2` (Semantic Scholar) is added to `sources` so arXiv-only preprints
+# without Crossref reference lists still contribute edges to the graph.
+#
+# After the run, visualize the captured subgraph:
+#
+#   bibliofetch graph --format mermaid --out examples/graph.mmd \
+#                     examples/graph_papers
+#
+# `max_refs_per_paper` caps runaway fan-out (some reviews cite 300+
+# papers). `max_depth = 1` = seed + immediate references; bump to 2 only
+# if you really want second-hop transitive references.
+
+[folder]
+target = "~/bibliofetch-examples/graph_papers"
+
+[fetch]
+sources = ["unpaywall", "arxiv", "s2", "direct"]
+
+[graph]
+follow_references = true
+max_depth = 1
+max_refs_per_paper = 20
+
+[doi]
+# Seed: Schollwöck's 2011 MPS review. Dense reference list touching most
+# of the DMRG / MPS literature — ideal first-hop starting point.
+list = [
+    "10.1016/j.aop.2010.09.012",
+]
