@@ -1,6 +1,6 @@
 name = "BiblioFetch"
 uuid = "762df351-a244-4190-a0f4-a80c2d45f387"
-version = "0.1.6"
+version = "0.1.7"
 authors = ["sota shimozono <shimozono-sota631@g.ecc.u-tokyo.ac.jp>"]
 
 [deps]

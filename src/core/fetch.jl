@@ -60,6 +60,32 @@ const DEFAULT_SOURCES = (:unpaywall, :arxiv, :direct)
 # in their job's `[fetch].sources`.
 const KNOWN_SOURCES = (:unpaywall, :arxiv, :direct, :s2, :aps, :elsevier, :springer)
 
+# Source classification used by `source_policy`:
+#
+#   * PUBLISHER_SOURCES = routes that deliver the version-of-record. When
+#     source_policy is :strict, only these are allowed to produce candidates.
+#     `:unpaywall` is special — the Unpaywall API returns either a publisher-
+#     hosted PDF (host_type = "publisher") or a repository preprint
+#     (host_type = "repository"). In strict mode the candidate is only kept
+#     when host_type is "publisher"; see the Unpaywall branch in fetch_paper!
+#     for the gating.
+#
+#   * PREPRINT_SOURCES = routes that deliver preprints / aggregated copies.
+#     Never produces a "strict" success; excluded outright in strict mode.
+const PUBLISHER_SOURCES = (:unpaywall, :aps, :elsevier, :springer, :direct)
+const PREPRINT_SOURCES = (:arxiv, :s2)
+
+# source_policy: which sources count as a "true-source" fetch.
+#   :strict   — only PUBLISHER_SOURCES (and unpaywall with host_type == "publisher")
+#   :lenient  — any configured source. Current historical default.
+const KNOWN_SOURCE_POLICIES = (:strict, :lenient)
+
+# on_fail: what to do when a reference ends the cascade with no success.
+#   :pending  — record status=:pending, `sync` retries it later. Default.
+#   :skip     — record status=:skipped; excluded from sync's retry set.
+#   :error    — throw after the run loop, exit code non-zero.
+const KNOWN_ON_FAIL_POLICIES = (:pending, :skip, :error)
+
 # Compute a hex-encoded SHA-256 of a file's byte stream. Used to dedup PDFs
 # that arrive via multiple DOI aliases (arxiv preprint DOI vs journal DOI).
 function _sha256_file(path::AbstractString)
@@ -181,13 +207,21 @@ end
 
 """
     fetch_paper!(store, key; rt, group = "", force = false,
-                 sources = DEFAULT_SOURCES, verbose = true) -> FetchResult
+                 sources = DEFAULT_SOURCES, source_policy = :lenient,
+                 verbose = true) -> FetchResult
 
 Resolve `key` (DOI or `arxiv:…`) and try the configured `sources` in order:
 
   1. `:unpaywall` → OA PDF (requires `rt.email`)
   2. `:arxiv`     → arXiv preprint (always OA)
   3. `:direct`    → `doi.org/<doi>` through proxy (only when proxy is reachable)
+
+`source_policy` controls which sources are allowed to produce candidates:
+
+  * `:lenient` (default) — every source listed in `sources` is eligible.
+  * `:strict`            — only `PUBLISHER_SOURCES` produce candidates;
+    preprint routes (`:arxiv`, `:s2`) are silently dropped, and `:unpaywall`
+    is only kept when its best_oa_location has `host_type = "publisher"`.
 
 The PDF is stored at `pdf_path(store, key; group)` — i.e. in `store.root/<group>/`.
 Per-attempt diagnostics are recorded in the returned `FetchResult.attempts`.
@@ -199,8 +233,14 @@ function fetch_paper!(
     group::AbstractString="",
     force::Bool=false,
     sources=DEFAULT_SOURCES,
+    source_policy::Symbol=:lenient,
     verbose::Bool=true,
 )
+    source_policy in KNOWN_SOURCE_POLICIES || throw(
+        ArgumentError(
+            "unknown source_policy $(source_policy); allowed: $(KNOWN_SOURCE_POLICIES)"
+        ),
+    )
     key = normalize_key(key)
     group = _normalize_group(group)
     md = read_metadata(store, key);
@@ -269,14 +309,38 @@ function fetch_paper!(
     end
 
     candidates = Tuple{Symbol,String}[]  # (source, url)
-    want(s) = s in sources
+    # `want(s)` gates whether the source is even tried at lookup/candidate
+    # time. `:strict` source_policy drops preprint routes up front — the
+    # network call itself is skipped, not just the candidate pushed.
+    want(s) =
+        let
+            configured = s in sources
+            if !configured
+                false
+            elseif source_policy === :strict && !(s in PUBLISHER_SOURCES)
+                false
+            else
+                true
+            end
+        end
 
     # 1) Unpaywall
     if want(:unpaywall) && doi !== nothing && rt.email !== nothing
         verbose && @info "→ Unpaywall lookup" doi
         pdf, upmeta = unpaywall_lookup(doi; email=rt.email, proxy=rt.proxy)
         !isempty(upmeta) && (md["is_oa"] = get(upmeta, "is_oa", false))
-        pdf !== nothing && push!(candidates, (:unpaywall, pdf))
+        if pdf !== nothing
+            # Strict mode: Unpaywall's best_oa_location may be a repository
+            # preprint (host_type = "repository"); keep the candidate only
+            # when it's explicitly publisher-hosted. An unknown/missing
+            # host_type gets rejected under :strict — the whole point of
+            # the mode is to refuse ambiguous provenance.
+            host_type = let loc = get(upmeta, "best_oa_location", nothing)
+                loc === nothing ? "" : String(get(loc, "host_type", ""))
+            end
+            allow_up = source_policy !== :strict || host_type == "publisher"
+            allow_up && push!(candidates, (:unpaywall, pdf))
+        end
     end
 
     # 1b) Semantic Scholar (opt-in; good for abstracts + an alternate OA PDF set)

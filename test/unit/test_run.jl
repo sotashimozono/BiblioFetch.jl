@@ -101,6 +101,8 @@ end
         false,                        # force
         [:arxiv],                     # sources
         false,                        # strict_duplicates
+        :lenient,                     # source_policy
+        :pending,                     # on_fail
         false,                        # follow_references
         0,                            # max_depth
         50,                           # max_refs_per_paper

@@ -51,6 +51,14 @@ struct FetchJob
     force::Bool
     sources::Vector{Symbol}
     strict_duplicates::Bool
+    # source_policy: :strict keeps only PUBLISHER_SOURCES (and publisher-
+    # hosted Unpaywall); :lenient is the historical everything-goes default.
+    source_policy::Symbol
+    # on_fail: what happens when a reference fails all candidates.
+    #   :pending — status=:pending, sync retries it later. Default.
+    #   :skip    — status=:skipped, excluded from sync's retry set.
+    #   :error   — abort the whole run after the current batch finishes.
+    on_fail::Symbol
     # citation graph expansion
     follow_references::Bool          # [graph].follow_references, default false
     max_depth::Int                   # [graph].max_depth (hops from seed), default 1
@@ -158,6 +166,27 @@ function load_job(path::AbstractString; runtime::Union{Runtime,Nothing}=nothing)
 
     strict = Bool(get(fetch, "strict_duplicates", false))
 
+    # source_policy + on_fail — both default to the historical behavior
+    # (lenient cascade, deferred entries go to :pending).
+    source_policy = let sp = String(get(fetch, "source_policy", "lenient"))
+        sym = Symbol(sp)
+        sym in KNOWN_SOURCE_POLICIES || throw(
+            ArgumentError(
+                "[fetch].source_policy '$(sp)' is unknown; allowed: $(KNOWN_SOURCE_POLICIES)",
+            ),
+        )
+        sym
+    end
+    on_fail = let of = String(get(fetch, "on_fail", "pending"))
+        sym = Symbol(of)
+        sym in KNOWN_ON_FAIL_POLICIES || throw(
+            ArgumentError(
+                "[fetch].on_fail '$(of)' is unknown; allowed: $(KNOWN_ON_FAIL_POLICIES)",
+            ),
+        )
+        sym
+    end
+
     # citation graph config
     graphsec = get(cfg, "graph", Dict{String,Any}())
     follow_references = Bool(get(graphsec, "follow_references", false))
@@ -213,6 +242,8 @@ function load_job(path::AbstractString; runtime::Union{Runtime,Nothing}=nothing)
         force,
         sources,
         strict,
+        source_policy,
+        on_fail,
         follow_references,
         max_depth,
         max_refs_per_paper,
@@ -292,6 +323,11 @@ function run(job::FetchJob; verbose::Bool=true, runtime::Union{Runtime,Nothing}=
     entries = job.refs
     _run_batch!(entries, store, rt_job, job, logio, verbose)
 
+    # on_fail=:error — throw after the seed batch if any ref didn't make
+    # it, before graph expansion runs. In-flight parallel workers have
+    # already settled because `_run_batch!` joins on the task group.
+    _maybe_abort_on_fail(entries, job, logio)
+
     # Citation-graph expansion: after the seed layer completes, read each
     # successfully-fetched entry's recorded `referenced_dois` and queue any
     # previously-unseen ones as depth-d+1 entries. Each hop is a fresh fetch
@@ -310,6 +346,8 @@ function run(job::FetchJob; verbose::Bool=true, runtime::Union{Runtime,Nothing}=
             for e in new_entries
                 push!(seen_keys, e.key)
             end
+            # Re-check between expansion layers too.
+            _maybe_abort_on_fail(entries, job, logio)
         end
     end
 
@@ -369,6 +407,18 @@ function _collect_references(store, entries, seen_keys, d::Int, job::FetchJob)
     return new_entries
 end
 
+# on_fail=:error raises after a batch settles so we don't leak running
+# tasks mid-loop. `:failed` and `:pending` both count as non-success here —
+# if the user asked to abort on failure, a deferred ref is just as bad.
+function _maybe_abort_on_fail(entries, job, logio)
+    job.on_fail === :error || return nothing
+    bad = filter(e -> e.status in (:failed, :pending), entries)
+    isempty(bad) && return nothing
+    msg = "run aborted (on_fail=error): $(length(bad)) ref(s) did not succeed — first: $(bad[1].key) [$(bad[1].status)]"
+    _logln(logio, msg)
+    throw(ErrorException(msg))
+end
+
 function _run_sequential!(entries, store, rt, job, logio, verbose)
     for e in entries
         _run_one!(e, store, rt, job, logio, verbose)
@@ -407,6 +457,7 @@ function _run_one!(
             group=e.group,
             force=job.force,
             sources=job.sources,
+            source_policy=job.source_policy,
             verbose=verbose,
         )
     catch err
@@ -429,10 +480,24 @@ function _run_one!(
 
     e.status = if res.ok
         :ok
+    elseif job.on_fail === :skip
+        # User-requested "don't retry, don't pile up pending records" —
+        # mark the entry skipped so `sync` leaves it alone.
+        :skipped
     elseif res.source === :deferred
         :pending   # network was off; sync will retry
     else
         :failed
+    end
+    # When the entry is skipped, reflect that in the persisted TOML too —
+    # otherwise `fetch_paper!` has already written status=:pending or
+    # :failed and `sync` would pick it up.
+    if e.status === :skipped
+        md = read_metadata(store, e.key)
+        if !isempty(md)
+            md["status"] = "skipped"
+            write_metadata!(store, e.key, md)
+        end
     end
     e.source = res.source
     e.pdf_path = res.pdf_path
