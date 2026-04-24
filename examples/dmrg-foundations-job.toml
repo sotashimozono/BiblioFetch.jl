@@ -22,7 +22,7 @@
 # metadata or via title search when no explicit preprint is registered.
 
 [folder]
-target = "~/bibliofetch-examples/dmrg_foundations"
+target = "dmrg_foundations_papers"
 
 [fetch]
 # `:s2` supplements Crossref reference lists for graph expansion; not

@@ -200,3 +200,70 @@ end
         @test job.log_file == joinpath(job.target, BiblioFetch.METADATA_DIRNAME, "run.log")
     end
 end
+
+@testset "load_job: relative target resolves against the job file's directory" begin
+    # Regression test for #35 — previously `target = "papers"` was
+    # resolved against `pwd()`, so running from a different cwd scattered
+    # output elsewhere.
+    mktempdir() do dir
+        job_path = joinpath(dir, "bibliofetch.toml")
+        open(job_path, "w") do io
+            write(
+                io,
+                """
+          [folder]
+          target = "papers"
+          [doi]
+          list = ["arxiv:1706.03762"]
+      """,
+            )
+        end
+        # cd elsewhere to prove resolution is *not* cwd-relative
+        mktempdir() do other
+            cd(other) do
+                job = load_job(job_path)
+                @test job.target == normpath(joinpath(dir, "papers"))
+                @test startswith(job.target, dir)
+            end
+        end
+    end
+end
+
+@testset "load_job: absolute target is honored verbatim" begin
+    mktempdir() do dir
+        target = joinpath(dir, "elsewhere", "papers")
+        job_path = joinpath(dir, "bibliofetch.toml")
+        open(job_path, "w") do io
+            write(
+                io,
+                """
+          [folder]
+          target = "$(target)"
+          [doi]
+          list = ["arxiv:1706.03762"]
+      """,
+            )
+        end
+        job = load_job(job_path)
+        @test job.target == target
+    end
+end
+
+@testset "load_job: ~-prefixed target is expanded, not joined with job dir" begin
+    mktempdir() do dir
+        job_path = joinpath(dir, "bibliofetch.toml")
+        open(job_path, "w") do io
+            write(
+                io,
+                """
+          [folder]
+          target = "~/bibliofetch-test-target-9f2c"
+          [doi]
+          list = ["arxiv:1706.03762"]
+      """,
+            )
+        end
+        job = load_job(job_path)
+        @test job.target == expanduser("~/bibliofetch-test-target-9f2c")
+    end
+end

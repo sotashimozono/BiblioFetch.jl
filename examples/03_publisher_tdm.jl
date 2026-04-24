@@ -28,7 +28,7 @@
 #
 # ```toml
 # [folder]
-# target = "~/bibliofetch-examples/tdm_papers"
+# target = "tdm_papers"
 #
 # [fetch]
 # sources = ["unpaywall", "arxiv", "aps", "elsevier", "springer", "direct"]

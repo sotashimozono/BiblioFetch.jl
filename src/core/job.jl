@@ -92,7 +92,15 @@ function load_job(path::AbstractString; runtime::Union{Runtime,Nothing}=nothing)
 
     target_raw = get(folder, "target", "")
     isempty(target_raw) && throw(ArgumentError("[folder].target is required in $(path)"))
-    target = abspath(expanduser(String(target_raw)))
+    # Relative `target` paths resolve against the job file's directory, not
+    # `pwd()` — so `bibliofetch run /elsewhere/job.toml` from any cwd puts
+    # PDFs next to the job file. Absolute and `~`-prefixed paths are
+    # honored verbatim. This matches Cargo / npm / tox / pre-commit, and
+    # fixes the footgun where running from the repo root scattered output
+    # into the repo.
+    target = let t = expanduser(String(target_raw))
+        isabspath(t) ? t : normpath(joinpath(dirname(abspath(path)), t))
+    end
 
     # log file path — default into <target>/.metadata/run.log
     log_file = let f = get(logsec, "file", nothing)

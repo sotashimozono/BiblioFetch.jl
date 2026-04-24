@@ -10,7 +10,7 @@
 #
 # ```toml
 # [folder]
-# target = "~/bibliofetch-examples/graph_papers"
+# target = "graph_papers"
 #
 # [fetch]
 # sources = ["unpaywall", "arxiv", "s2", "direct"]
@@ -44,18 +44,18 @@
 # bibliofetch run examples/citation-graph-job.toml
 # ```
 #
-# The run writes `~/bibliofetch-examples/graph_papers/` containing the
-# seed PDF plus every first-hop referenced DOI that BiblioFetch could
-# reach. Entries that couldn't be fetched are recorded as
-# `status = "failed"` or `status = "pending"` TOMLs in `.metadata/`.
+# The run writes `examples/graph_papers/` containing the seed PDF plus
+# every first-hop referenced DOI that BiblioFetch could reach. Entries
+# that couldn't be fetched are recorded as `status = "failed"` or
+# `status = "pending"` TOMLs in `.metadata/`.
 #
 # ## Visualizing the subgraph
 #
 # Once the run is done, render the captured edges:
 #
 # ```sh
-# bibliofetch graph --format mermaid --out graph.mmd ~/bibliofetch-examples/graph_papers
-# bibliofetch graph --format dot     --out graph.dot ~/bibliofetch-examples/graph_papers
+# bibliofetch graph --format mermaid --out graph.mmd examples/graph_papers
+# bibliofetch graph --format dot     --out graph.dot examples/graph_papers
 # ```
 #
 # The mermaid output pastes straight into any Markdown renderer that
