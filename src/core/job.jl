@@ -59,6 +59,12 @@ struct FetchJob
     #   :skip    — status=:skipped, excluded from sync's retry set.
     #   :error   — abort the whole run after the current batch finishes.
     on_fail::Symbol
+    # also_arxiv: when true, `fetch_paper!` does a second pass for each
+    # primary-successful ref whose source wasn't already `:arxiv` and
+    # fetches the arXiv preprint into `<key>__preprint.pdf` alongside the
+    # publisher PDF. Records `preprint_*` fields in the entry's metadata
+    # TOML. Skipped silently when no arXiv id is discoverable.
+    also_arxiv::Bool
     # citation graph expansion
     follow_references::Bool          # [graph].follow_references, default false
     max_depth::Int                   # [graph].max_depth (hops from seed), default 1
@@ -186,6 +192,7 @@ function load_job(path::AbstractString; runtime::Union{Runtime,Nothing}=nothing)
         )
         sym
     end
+    also_arxiv = Bool(get(fetch, "also_arxiv", false))
 
     # citation graph config
     graphsec = get(cfg, "graph", Dict{String,Any}())
@@ -244,6 +251,7 @@ function load_job(path::AbstractString; runtime::Union{Runtime,Nothing}=nothing)
         strict,
         source_policy,
         on_fail,
+        also_arxiv,
         follow_references,
         max_depth,
         max_refs_per_paper,
@@ -516,6 +524,7 @@ function _run_one!(
             force=job.force,
             sources=job.sources,
             source_policy=job.source_policy,
+            also_arxiv=job.also_arxiv,
             verbose=verbose,
         )
     catch err

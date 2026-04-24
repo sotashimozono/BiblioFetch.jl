@@ -54,11 +54,27 @@ function pdf_path(s::Store, key; group::AbstractString="")
     return joinpath(dir, _safe_key(key) * ".pdf")
 end
 
+# Companion-PDF path used by the `[fetch].also_arxiv` flag: when the primary
+# fetch came from a publisher route, the arXiv preprint is stored alongside
+# with a `__preprint.pdf` suffix on the safe-key stem. Keeps both artifacts
+# discoverable from the same metadata TOML and deterministic per group.
+function preprint_pdf_path(s::Store, key; group::AbstractString="")
+    g = _normalize_group(group)
+    dir = isempty(g) ? s.root : joinpath(s.root, g)
+    return joinpath(dir, _safe_key(key) * "__preprint.pdf")
+end
+
 has_metadata(s::Store, key) = isfile(metadata_path(s, key))
 has_pdf(s::Store, key; group::AbstractString="") =
     let p = pdf_path(s, key; group=group);
         isfile(p) && filesize(p) > 0
     end
+
+function has_preprint(s::Store, key; group::AbstractString="")
+    let p = preprint_pdf_path(s, key; group=group);
+        isfile(p) && filesize(p) > 0
+    end
+end
 
 # Locate an existing PDF for `key` regardless of group (for migrations / lookups).
 function find_pdf(s::Store, key)

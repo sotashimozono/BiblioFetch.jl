@@ -223,6 +223,13 @@ Resolve `key` (DOI or `arxiv:…`) and try the configured `sources` in order:
     preprint routes (`:arxiv`, `:s2`) are silently dropped, and `:unpaywall`
     is only kept when its best_oa_location has `host_type = "publisher"`.
 
+`also_arxiv` (default `false`) — after a successful primary fetch whose
+source is not already `:arxiv`, BiblioFetch does a companion download of
+the arXiv preprint (if an arXiv id was discovered from Crossref
+`relation.has-preprint` or the title-search fallback) into
+`preprint_pdf_path(store, key; group)`. Records `preprint_*` fields in
+the entry's metadata TOML. Silently no-ops when no arXiv id exists.
+
 The PDF is stored at `pdf_path(store, key; group)` — i.e. in `store.root/<group>/`.
 Per-attempt diagnostics are recorded in the returned `FetchResult.attempts`.
 """
@@ -234,6 +241,7 @@ function fetch_paper!(
     force::Bool=false,
     sources=DEFAULT_SOURCES,
     source_policy::Symbol=:lenient,
+    also_arxiv::Bool=false,
     verbose::Bool=true,
 )
     source_policy in KNOWN_SOURCE_POLICIES || throw(
@@ -256,6 +264,17 @@ function fetch_paper!(
         # Backfill sha256 for entries stored before dedup support existed, so
         # `bibliofetch dedup` can find duplicates without a separate rehash step.
         isempty(String(get(md, "sha256", ""))) && (md["sha256"] = _sha256_file(dest))
+        # Cache hit — the primary is already on disk. If also_arxiv is set
+        # and the companion preprint isn't yet present, attempt the
+        # companion fetch anyway. `cached_source` from md tells us whether
+        # to even bother (don't re-fetch the arxiv preprint on top of an
+        # arxiv-originated cache hit).
+        cached_source = Symbol(get(md, "source", "cached"))
+        if also_arxiv && cached_source !== :arxiv
+            _maybe_fetch_preprint_companion!(
+                store, key, group, md, rt; verbose=verbose, force=force
+            )
+        end
         write_metadata!(store, key, md)
         return FetchResult(key, true, :cached, dest, nothing, attempts)
     end
@@ -495,9 +514,88 @@ function fetch_paper!(
         md["error"] = ""
         md["attempts"] = _attempts_to_dict.(attempts)
         md["sha256"] = _sha256_file(dest)
+        # Companion preprint fetch — only when the primary came from a
+        # non-arxiv source. Arxiv-source primaries already *are* the
+        # preprint, so a second download would be redundant.
+        if also_arxiv && used_source !== :arxiv
+            _maybe_fetch_preprint_companion!(
+                store, key, group, md, rt; verbose=verbose, force=force
+            )
+        end
         write_metadata!(store, key, md)
         return FetchResult(key, true, used_source, dest, nothing, attempts)
     end
+end
+
+# Download the arXiv preprint companion into preprint_pdf_path. Uses the
+# `arxiv_id` already stored in `md` by the primary metadata lookup (or a
+# fallback title-search if needed). Mutates `md` with `preprint_pdf` /
+# `preprint_sha256` / `preprint_fetched_at` on success, `preprint_error` on
+# failure. No-op when no arxiv id can be found — the primary fetch is the
+# authoritative outcome; the companion is a best-effort add-on.
+function _maybe_fetch_preprint_companion!(
+    store::Store,
+    key::AbstractString,
+    group::AbstractString,
+    md::AbstractDict,
+    rt::Runtime;
+    verbose::Bool=true,
+    force::Bool=false,
+)
+    # Resolve the arxiv id. Priority: (1) already in md (from crossref
+    # relation.has-preprint), (2) inferred from key if it's itself arxiv:…,
+    # (3) title-search fallback.
+    arxiv_id = let ax = String(get(md, "arxiv_id", ""))
+        if !isempty(ax)
+            ax
+        elseif startswith(key, "arxiv:")
+            key[7:end]
+        elseif !isempty(get(md, "title", ""))
+            verbose && @info "→ preprint: arXiv title search" title=md["title"]
+            found = arxiv_search_by_title(
+                string(md["title"]);
+                authors=String.(get(md, "authors", String[])),
+                proxy=rt.proxy,
+            )
+            found === nothing ? "" : String(found)
+        else
+            ""
+        end
+    end
+    if isempty(arxiv_id)
+        # Nothing to fetch — not a failure, just a no-op. Make the
+        # provenance visible in metadata so a user running `bibliofetch
+        # info` knows the companion flag was honored but had no target.
+        md["preprint_status"] = "no-arxiv-id"
+        return nothing
+    end
+    md["arxiv_id"] = arxiv_id
+
+    pp_dest = preprint_pdf_path(store, key; group=group)
+    if !force && has_preprint(store, key; group=group)
+        md["preprint_pdf"] = pp_dest
+        isempty(String(get(md, "preprint_sha256", ""))) &&
+            (md["preprint_sha256"] = _sha256_file(pp_dest))
+        md["preprint_status"] = "cached"
+        return nothing
+    end
+
+    url = arxiv_pdf_url(arxiv_id)
+    verbose && @info "→ preprint: downloading companion arXiv PDF" url
+    r = _http_download_pdf(url, pp_dest; proxy=rt.proxy)
+    if r.ok
+        md["preprint_pdf"] = pp_dest
+        md["preprint_source"] = "arxiv"
+        md["preprint_sha256"] = _sha256_file(pp_dest)
+        md["preprint_fetched_at"] = string(Dates.now())
+        md["preprint_status"] = "ok"
+        haskey(md, "preprint_error") && delete!(md, "preprint_error")
+    else
+        md["preprint_status"] = "failed"
+        md["preprint_error"] = r.error === nothing ? "unknown" : String(r.error)
+        haskey(md, "preprint_pdf") && delete!(md, "preprint_pdf")
+    end
+    return nothing
 end
 
 function _attempts_to_dict(a::AttemptLog)

@@ -103,6 +103,7 @@ end
         false,                        # strict_duplicates
         :lenient,                     # source_policy
         :pending,                     # on_fail
+        false,                        # also_arxiv
         false,                        # follow_references
         0,                            # max_depth
         50,                           # max_refs_per_paper
