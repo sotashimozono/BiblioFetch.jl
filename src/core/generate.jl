@@ -37,7 +37,7 @@ function generate(path::AbstractString; force::Bool=false)
     src = joinpath(pkgdir(BiblioFetch), "template")
     isdir(src) || throw(
         ErrorException(
-            "template directory missing from package install: $(src) — file a bug",
+            "template directory missing from package install: $(src) — file a bug"
         ),
     )
 
@@ -54,7 +54,7 @@ function generate(path::AbstractString; force::Bool=false)
             if isfile(target) && !force
                 throw(
                     ArgumentError(
-                        "file already exists: $(target); pass force = true to overwrite",
+                        "file already exists: $(target); pass force = true to overwrite"
                     ),
                 )
             end
