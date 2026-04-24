@@ -1,0 +1,46 @@
+# BiblioFetch — user-level configuration template.
+#
+# Copy this file to ~/.config/bibliofetch/config.toml (or point
+# $BIBLIOFETCH_CONFIG at it) and edit the fields below. Every field is
+# optional — BiblioFetch will fall back to sensible defaults for anything
+# you leave unset.
+#
+# Overrides precedence (highest first):
+#   $HTTPS_PROXY / $HTTP_PROXY   (environment)
+#   [profiles.<hostname>]        (matched against `hostname` and prefixes)
+#   [defaults]                   (this file's baseline)
+#   built-in defaults
+
+# ---------- defaults ----------------------------------------------------
+# Settings applied when no per-host profile matches. A new user typically
+# only needs `email` and `store_root` here.
+
+[defaults]
+# Your contact email. Required by the Unpaywall API policy; without it
+# the `:unpaywall` source is skipped.
+email = "you@example.edu"
+
+# Where every fetched PDF + metadata TOML lives. `~` and $VARS expand.
+# Each `bibliofetch run <job.toml>` writes under this root unless the job
+# specifies its own `[folder].target`.
+store_root = "~/papers"
+
+# ---------- per-host profiles -------------------------------------------
+# Optional: define one profile per machine (or logical environment) you
+# fetch from. The profile whose name matches (or prefixes) the current
+# `hostname` wins. `defaults` is used when nothing matches.
+#
+# Typical uses:
+#   - an on-campus machine with a direct internet proxy
+#   - a laptop that SSH-reverse-tunnels the campus proxy to localhost
+#   - a CI runner with no proxy at all (leave `proxy` out)
+
+# Example: a campus workstation behind an institutional HTTP proxy.
+# [profiles.lab-desktop]
+# proxy = "http://proxy.univ.example:8080"
+
+# Example: a laptop that runs `ssh -R 18080:proxy.univ.example:8080 lab-desktop`
+# and reaches the outside world through the reverse tunnel.
+# [profiles.laptop]
+# proxy = "http://localhost:18080"
+# store_root = "~/Dropbox/papers"       # override the root per machine

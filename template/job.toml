@@ -1,0 +1,47 @@
+# BiblioFetch — project-level job configuration.
+#
+# Run with:   bibliofetch run job.toml
+#
+# All fields shown below are optional unless marked REQUIRED. Delete or
+# comment out anything you don't need — defaults are sane.
+
+[folder]
+# REQUIRED. Directory where every PDF + metadata TOML for this job lives.
+# Relative paths are resolved against this file's directory, so
+# `target = "papers"` works for a self-contained project layout.
+target = "papers"
+
+# Optional: where to write `bibliofetch bib` output when you export BibTeX.
+# bibtex = "refs.bib"
+
+[fetch]
+# Sources tried in order per reference. Remove routes you don't want; the
+# first route that yields a valid PDF wins.
+#   unpaywall  — OA PDF lookup (needs `email`)
+#   arxiv      — arXiv preprint (always OA)
+#   direct     — doi.org/<doi> landing via proxy (for subscribed journals)
+#   s2         — Semantic Scholar (abstracts + alternate OA set)
+#   aps        — APS Harvest TDM (needs $APS_API_KEY, 10.1103/* DOIs)
+#   elsevier   — ScienceDirect TDM (needs $ELSEVIER_API_KEY, 10.1016/* DOIs)
+#   springer   — Springer Nature OA (needs $SPRINGER_API_KEY, 10.1007/*, 10.1038/*, 10.1186/*, 10.1140/*)
+sources = ["unpaywall", "arxiv", "direct"]
+
+# parallel = 1        # raise only if you have distinct external hosts to hit
+# force = false       # re-download even when the PDF is already on disk
+
+# Citation-graph expansion — off by default. When on, references extracted
+# from each fetched paper's metadata (Crossref / S2) are queued as new
+# entries, bounded by max_depth and max_refs_per_paper.
+# [graph]
+# follow_references = true
+# max_depth = 1
+# max_refs_per_paper = 30
+
+# The actual reference list. Group names become subdirectories under
+# `[folder].target`. Refs can be DOIs (10…), arXiv ids (arxiv:…), or full
+# URLs; BiblioFetch normalizes all three.
+[doi]
+list = [
+    # "10.1103/PhysRevLett.69.2863",
+    # "arxiv:2301.00001",
+]
