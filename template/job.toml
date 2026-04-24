@@ -29,6 +29,10 @@ sources = ["unpaywall", "arxiv", "direct"]
 # parallel = 1        # raise only if you have distinct external hosts to hit
 # force = false       # re-download even when the PDF is already on disk
 
+# Fetch policies — see examples/05_fetch_policies.jl for the full matrix.
+# source_policy = "lenient"   # "strict" → publisher/journal only, no arXiv fallback
+# on_fail       = "pending"   # "skip" (ignore misses) | "error" (abort the run)
+
 # Citation-graph expansion — off by default. When on, references extracted
 # from each fetched paper's metadata (Crossref / S2) are queued as new
 # entries, bounded by max_depth and max_refs_per_paper.
