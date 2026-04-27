@@ -97,27 +97,8 @@ Pass `force=true` to rebuild:
 
     # --- write wrapper script ---------------------------------------------
     mkpath(bindir)
-    wrapper = joinpath(bindir, "bibliofetch")
     julia_bin = joinpath(Sys.BINDIR, "julia")
-
-    if Sys.iswindows()
-        wrapper *= ".cmd"
-        open(wrapper, "w") do io
-            println(io, "@echo off")
-            println(
-                io,
-                "\"$(julia_bin)\" --sysimage \"$(sysimage_path)\" --startup-file=no -e \"using BiblioFetch; exit(cli_main(ARGS))\" -- %*",
-            )
-        end
-    else
-        open(wrapper, "w") do io
-            println(io, "#!/bin/sh")
-            println(io, "exec \"$(julia_bin)\" --sysimage \"$(sysimage_path)\" \\")
-            println(io, "     --startup-file=no \\")
-            println(io, "     -e 'using BiblioFetch; exit(cli_main(ARGS))' -- \"\$@\"")
-        end
-        chmod(wrapper, 0o755)
-    end
+    wrapper = _write_wrapper(bindir, julia_bin, sysimage_path)
     println("Wrapper  : ", wrapper)
 
     # --- PATH hint --------------------------------------------------------
@@ -163,6 +144,7 @@ function clean(;
     sysimage_dir::AbstractString=joinpath(homedir(), ".local", "share", "bibliofetch"),
     bindir::AbstractString=joinpath(homedir(), ".local", "bin"),
     verbose::Bool=true,
+    io::IO=stdout,
 )
     sysimage_dir = expanduser(string(sysimage_dir))
     bindir = expanduser(string(bindir))
@@ -184,12 +166,12 @@ function clean(;
 
     if verbose
         if isempty(removed)
-            println("Nothing to remove — no BiblioFetch build artefacts found.")
+            println(io, "Nothing to remove — no BiblioFetch build artefacts found.")
         else
             for f in removed
-                println("Removed: ", f)
+                println(io, "Removed: ", f)
             end
-            println("Done.")
+            println(io, "Done.")
         end
     end
 
@@ -201,4 +183,29 @@ function _guess_shell_rc()
     shell == "zsh" && return "~/.zshrc"
     shell == "fish" && return "~/.config/fish/config.fish"
     return "~/.bashrc"
+end
+
+# Write the thin shell wrapper that invokes julia with the sysimage.
+# Extracted so it can be tested without invoking PackageCompiler.
+function _write_wrapper(bindir::AbstractString, julia_bin::AbstractString, sysimage_path::AbstractString)
+    wrapper = joinpath(bindir, "bibliofetch")
+    if Sys.iswindows()
+        wrapper *= ".cmd"
+        open(wrapper, "w") do io
+            println(io, "@echo off")
+            println(
+                io,
+                "\"$(julia_bin)\" --sysimage \"$(sysimage_path)\" --startup-file=no -e \"using BiblioFetch; exit(cli_main(ARGS))\" -- %*",
+            )
+        end
+    else
+        open(wrapper, "w") do io
+            println(io, "#!/bin/sh")
+            println(io, "exec \"$(julia_bin)\" --sysimage \"$(sysimage_path)\" \\")
+            println(io, "     --startup-file=no \\")
+            println(io, "     -e 'using BiblioFetch; exit(cli_main(ARGS))' -- \"\$@\"")
+        end
+        chmod(wrapper, 0o755)
+    end
+    return wrapper
 end
