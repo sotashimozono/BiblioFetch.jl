@@ -143,7 +143,8 @@ function vault_add_ref!(
     existing = try
         [normalize_key(String(r)) for r in list]
     catch
-        ; String[]
+        ;
+        String[]
     end
     key in existing && return key
     push!(list, raw_ref)
@@ -185,7 +186,8 @@ function vault_fetch!(
             key = try
                 normalize_key(raw)
             catch
-                ; continue
+                ;
+                continue
             end
             push!(entries, FetchEntry(key, group, raw))
         end
@@ -268,7 +270,8 @@ function expand_vault_inherit(job::FetchJob)
             key = try
                 normalize_key(raw)
             catch
-                ; continue
+                ;
+                continue
             end
             haskey(seen, key) && continue
             seen[key] = g
