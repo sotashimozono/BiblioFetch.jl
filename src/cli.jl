@@ -799,7 +799,8 @@ function _cmd_annotate(args)
     key = try
         normalize_key(ref)
     catch
-        ; ref
+        ;
+        ref
     end
     md = read_metadata(store, key)
     if isempty(md)

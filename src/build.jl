@@ -41,7 +41,7 @@ then retry:
     end
 
     destdir = expanduser(string(destdir))
-    bindir  = expanduser(string(bindir))
+    bindir = expanduser(string(bindir))
 
     if isdir(destdir) && !force
         error("""

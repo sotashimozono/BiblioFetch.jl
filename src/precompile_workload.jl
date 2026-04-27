@@ -17,11 +17,11 @@ using PrecompileTools
 
     # BibTeX key generation
     md = Dict{String,Any}(
-        "key"     => "10.1103/PhysRevB.99.214433",
-        "title"   => "Test Paper",
+        "key" => "10.1103/PhysRevB.99.214433",
+        "title" => "Test Paper",
         "authors" => ["Doe, John"],
-        "year"    => 2024,
-        "status"  => "ok",
+        "year" => 2024,
+        "status" => "ok",
         "journal" => "Phys. Rev. B",
     )
     bibtex_entry(md)
