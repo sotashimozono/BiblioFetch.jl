@@ -1,26 +1,36 @@
 const CLI_HELP = """
 BiblioFetch — bulk literature fetcher (DOI / arXiv → local PDF store)
 
-Usage:
-  bibliofetch env                         Show detected runtime (hostname, proxy, mode)
-  bibliofetch status [--timeout <s>]      Probe supported APIs; report what's reachable now
-  bibliofetch init <path> [--force]       Create a new BiblioFetch project (job.toml + README)
+Common usage:
+  bibliofetch                             Run job.toml in the current directory
   bibliofetch run <job.toml>              Execute a job TOML (groups, parallel, log)
-  bibliofetch bib <dir> [--out <path>]    Export BibTeX for all ok entries in a store root
-  bibliofetch import <refs.bib>           Queue DOIs / arXiv ids from an existing .bib file
-  bibliofetch dedup [<dir>] [--apply]     Report (or apply with --apply) PDF-hash duplicates
-  bibliofetch doctor [<dir>] [--fix]      Report (or --fix) integrity issues (orphans, missing, .part)
-  bibliofetch watch <job.toml>            Watch job file; re-run on each save (Ctrl+C to stop)
   bibliofetch add <ref> [<ref> …]         Queue refs into the global store
   bibliofetch add -f <file>               Queue from a file (one ref per line; '#' comments ok)
-  bibliofetch sync [--force] [--quiet]    Fetch pending/failed entries; --force re-downloads even ok+pdf entries
-  bibliofetch fetch <ref> [--force]       Fetch one reference; --force re-downloads even if the PDF is cached
-  bibliofetch list [--all]                List global store entries
-  bibliofetch search <q> [--field f]…     Substring-search title/authors/abstract/journal/key
+  bibliofetch sync [--force] [--quiet]    Fetch pending/failed entries
+  bibliofetch ls [--tag <t>] [--unread] [--starred]   List store entries (all by default)
+  bibliofetch bib [<dir>] [--out <path>]  Export BibTeX (defaults to current store)
+  bibliofetch info <ref> [--raw]          Show stored metadata
+  bibliofetch search <q> [--field f]…     Search title/authors/abstract/journal/key
+  bibliofetch annotate <ref>              Edit tags/notes/read_status in \$EDITOR
+
+Vault (topic-based collection):
+  bibliofetch vault ls                    List topics in the vault
+  bibliofetch vault fetch [<topic>]       Fetch papers for all or one topic
+  bibliofetch vault bib [<topic>]         Export BibTeX for vault (or one topic)
+  bibliofetch vault add <ref> --topic <t> Add a ref to a vault topic
+  bibliofetch vault search <query>        Search across all vault topics
+
+Advanced:
+  bibliofetch env                         Show detected runtime (hostname, proxy, mode)
+  bibliofetch status [--timeout <s>]      Probe supported APIs
+  bibliofetch init <path> [--force]       Create a new BiblioFetch project skeleton
+  bibliofetch fetch <ref> [--force]       Fetch one reference immediately
   bibliofetch stats [<dir>]               Summary: counts by status/source/group + PDF size
-  bibliofetch graph [--format dot|mermaid] [--out path] [--queued] [--all]   Citation-graph viz
-  bibliofetch info <ref> [--raw]          Show stored metadata (pretty; --raw for TOML dump)
-  bibliofetch help                        Show this message
+  bibliofetch import <refs.bib>           Queue DOIs / arXiv ids from an existing .bib file
+  bibliofetch dedup [<dir>] [--apply]     Report (or apply) PDF-hash duplicates
+  bibliofetch doctor [<dir>] [--fix]      Integrity check (orphans, missing, .part files)
+  bibliofetch watch <job.toml>            Watch job file; re-run on each save (Ctrl+C to stop)
+  bibliofetch graph [--format dot|mermaid] [--out path] [--queued] [--all]
 
 Reference forms:
   DOI          10.1103/PhysRevB.99.214433
@@ -136,18 +146,50 @@ function _cmd_fetch(args)
 end
 
 function _cmd_list(args)
-    show_all = "--all" in args
+    # default: show all entries (unlike old behavior which showed only pending/failed)
+    only_pending = "--pending" in args
+    tag_filter = ""
+    only_unread = "--unread" in args
+    only_starred = "--starred" in args
+    i = 1
+    while i <= length(args)
+        if args[i] == "--tag" && i < length(args)
+            tag_filter = args[i + 1]; i += 2
+        else
+            i += 1
+        end
+    end
     rt = detect_environment(; probe=false)
     store = open_store(rt.store_root)
     for safekey in list_entries(store)
         p = joinpath(store.root, METADATA_DIRNAME, safekey * ".toml")
         md = TOML.parsefile(p)
         status = get(md, "status", "?")
-        show_all || status in ("pending", "failed") || continue
+        only_pending && status in ("pending", "failed") || only_pending || true
+        only_pending && status ∉ ("pending", "failed") && continue
+        # tag filter
+        if !isempty(tag_filter)
+            tags = get(md, "tags", String[])
+            tags isa AbstractVector || (tags = String[])
+            tag_filter in String.(tags) || continue
+        end
+        # read_status filter
+        if only_unread
+            rs = String(get(md, "read_status", "unread"))
+            rs == "unread" || continue
+        end
+        # starred filter
+        if only_starred
+            Bool(get(md, "starred", false)) || continue
+        end
         key = get(md, "key", safekey)
         title = get(md, "title", "")
         title_short = length(title) > 60 ? title[1:57] * "…" : title
-        @printf("  [%-7s] %-45s  %s\n", status, key, title_short)
+        starred_mark = Bool(get(md, "starred", false)) ? "★" : " "
+        tags_str = let t = get(md, "tags", String[])
+            t isa AbstractVector && !isempty(t) ? " [" * join(String.(t), ",") * "]" : ""
+        end
+        @printf("  %s [%-7s] %-45s  %s%s\n", starred_mark, status, key, title_short, tags_str)
     end
     return 0
 end
@@ -718,23 +760,157 @@ function _cmd_dedup(args)
 end
 
 function _cmd_bib(args)
-    isempty(args) && (println(stderr, "bib: need a store directory"); return 2)
-    dir = args[1]
-    out = joinpath(dir, "refs.bib")
-    i = 2
+    rt = detect_environment(; probe=false)
+    # dir is optional: defaults to store_root from config
+    dir = nothing
+    out = nothing
+    i = 1
     while i <= length(args)
         if args[i] in ("--out", "-o")
             i += 1
             i <= length(args) || (println(stderr, "bib: --out needs a path"); return 2)
             out = args[i]
+        elseif !startswith(args[i], "--")
+            dir = args[i]
         end
         i += 1
     end
-    isdir(dir) || (println(stderr, "bib: not a directory: $(dir)"); return 2)
+    dir = dir === nothing ? rt.store_root : dir
+    isdir(expanduser(dir)) || (println(stderr, "bib: not a directory: $(dir)"); return 2)
+    out = out === nothing ? joinpath(expanduser(dir), "refs.bib") : out
     store = open_store(dir)
     n = write_bibtex(store, out)
     println("wrote $n entries → $(out)")
     return 0
+end
+
+function _cmd_annotate(args)
+    isempty(args) && (println(stderr, "annotate: need a reference"); return 2)
+    ref = first(filter(a -> !startswith(a, "--"), args))
+    rt = detect_environment(; probe=false)
+    store = open_store(rt.store_root)
+    key = try normalize_key(ref) catch; ref end
+    md = read_metadata(store, key)
+    if isempty(md)
+        println(stderr, "annotate: not found: $key")
+        return 1
+    end
+    # Ensure annotation fields exist with defaults
+    haskey(md, "tags")        || (md["tags"] = String[])
+    haskey(md, "notes")       || (md["notes"] = "")
+    haskey(md, "read_status") || (md["read_status"] = "unread")
+    haskey(md, "starred")     || (md["starred"] = false)
+    # Write to a temp file and open in $EDITOR
+    tmp = tempname() * ".toml"
+    open(tmp, "w") do io
+        println(io, "# Annotate: ", get(md, "title", key))
+        println(io, "# read_status: unread | reading | read | skimmed")
+        println(io)
+        TOML.print(io, Dict{String,Any}(
+            "tags"        => md["tags"],
+            "notes"       => md["notes"],
+            "read_status" => md["read_status"],
+            "starred"     => md["starred"],
+        ); sorted=true)
+    end
+    editor = get(ENV, "EDITOR", get(ENV, "VISUAL", "vi"))
+    run(Cmd([editor, tmp]))
+    # Read back and merge
+    edited = try TOML.parsefile(tmp) catch e
+        println(stderr, "annotate: could not parse edited file: $(sprint(showerror, e))")
+        return 1
+    end
+    for field in ("tags", "notes", "read_status", "starred")
+        haskey(edited, field) && (md[field] = edited[field])
+    end
+    write_metadata!(store, key, md)
+    println("annotated: $key")
+    return 0
+end
+
+function _cmd_vault(args)
+    isempty(args) && (println(stderr, "vault: need a subcommand (ls, fetch, bib, add, search)"); return 2)
+    sub, rest = args[1], args[2:end]
+    if sub == "ls"
+        index = load_vault_index()
+        topics = list_topics(index)
+        if isempty(topics)
+            println("no topics found in $(index.dir)")
+            println("Create a .toml file there, e.g.:")
+            println("  bibliofetch vault add arxiv:1234.5678 --topic my-topic")
+        else
+            println("vault: $(index.dir)  store: $(index.store)")
+            for t in topics
+                fname = basename(t.file)
+                tags_str = isempty(t.tags) ? "" : "  [" * join(t.tags, ",") * "]"
+                @printf("  %-30s  %-25s  %2d refs%s\n",
+                    fname, t.name, length(t.refs), tags_str)
+                isempty(t.notes) || println("    ", t.notes)
+            end
+        end
+        return 0
+    elseif sub == "fetch"
+        topic_name = nothing
+        for a in rest
+            startswith(a, "--") || (topic_name = a)
+        end
+        index = load_vault_index()
+        verbose = !("--quiet" in rest || "-q" in rest)
+        rt = detect_environment()
+        verbose && (show(stdout, MIME("text/plain"), rt); println(); println())
+        results = vault_fetch!(index; topic_name=topic_name, runtime=rt, verbose=verbose)
+        for (_, r) in results
+            show(stdout, MIME("text/plain"), r); println()
+        end
+        return 0
+    elseif sub == "bib"
+        topic_name = nothing
+        out = nothing
+        i = 1
+        while i <= length(rest)
+            if rest[i] in ("--out", "-o") && i < length(rest)
+                out = rest[i + 1]; i += 2
+            elseif !startswith(rest[i], "--")
+                topic_name = rest[i]; i += 1
+            else
+                i += 1
+            end
+        end
+        index = load_vault_index()
+        out_path = out === nothing ? joinpath(index.store, "vault.bib") : out
+        n = vault_bib(index; topic_name=topic_name, out=out_path)
+        println("wrote $n entries → $(out_path)")
+        return 0
+    elseif sub == "add"
+        topic_name = nothing
+        ref = nothing
+        i = 1
+        while i <= length(rest)
+            if rest[i] == "--topic" && i < length(rest)
+                topic_name = rest[i + 1]; i += 2
+            elseif !startswith(rest[i], "--")
+                ref = rest[i]; i += 1
+            else
+                i += 1
+            end
+        end
+        ref === nothing && (println(stderr, "vault add: need a reference"); return 2)
+        topic_name === nothing && (println(stderr, "vault add: need --topic <name>"); return 2)
+        index = load_vault_index()
+        key = vault_add_ref!(topic_name, ref; dir=index.dir)
+        println("added $key to topic '$topic_name'")
+        return 0
+    elseif sub == "search"
+        isempty(rest) && (println(stderr, "vault search: need a query"); return 2)
+        query = join(filter(a -> !startswith(a, "--"), rest), " ")
+        index = load_vault_index()
+        matches = vault_search(index, query)
+        show(stdout, MIME("text/plain"), matches)
+        return isempty(matches) ? 1 : 0
+    else
+        println(stderr, "vault: unknown subcommand '$sub'  (ls, fetch, bib, add, search)")
+        return 2
+    end
 end
 
 function _cmd_run(args)
@@ -743,7 +919,9 @@ function _cmd_run(args)
     quiet = ("--quiet" in args) || ("-q" in args)
     rt = detect_environment()
     !quiet && (show(stdout, MIME("text/plain"), rt); println(); println())
-    result = run(path; verbose=(!quiet), runtime=rt)
+    job = load_job(path; runtime=rt)
+    job = expand_vault_inherit(job)
+    result = BiblioFetch.run(job; verbose=(!quiet), runtime=rt)
     show(stdout, MIME("text/plain"), result)
     println()
     n_ok = count(e -> e.status === :ok, result.entries)
@@ -773,9 +951,17 @@ end
 Dispatch a `bibliofetch …` command line. Returns exit code.
 """
 function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
-    if isempty(args) || args[1] in ("-h", "--help", "help")
-        print(CLI_HELP);
+    # No-argument default: run job.toml in the current directory if it exists
+    if isempty(args)
+        job_path = joinpath(pwd(), "job.toml")
+        if isfile(job_path)
+            return cli_main(["run", job_path])
+        end
+        print(CLI_HELP)
         return 0
+    end
+    if args[1] in ("-h", "--help", "help")
+        print(CLI_HELP); return 0
     end
     cmd, rest = args[1], args[2:end]
     try
@@ -803,7 +989,7 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
             _cmd_sync(rest)
         elseif cmd == "fetch"
             _cmd_fetch(rest)
-        elseif cmd == "list"
+        elseif cmd in ("list", "ls")
             _cmd_list(rest)
         elseif cmd == "search"
             _cmd_search(rest)
@@ -813,6 +999,10 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
             _cmd_graph(rest)
         elseif cmd == "info"
             _cmd_info(rest)
+        elseif cmd == "annotate"
+            _cmd_annotate(rest)
+        elseif cmd == "vault"
+            _cmd_vault(rest)
         else
             (println(stderr, "unknown command: $cmd"); print(CLI_HELP); 2)
         end
