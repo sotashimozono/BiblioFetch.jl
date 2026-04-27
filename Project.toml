@@ -1,6 +1,6 @@
 name = "BiblioFetch"
 uuid = "762df351-a244-4190-a0f4-a80c2d45f387"
-version = "0.2.0"
+version = "1.0.0"
 authors = ["sota shimozono <shimozono-sota631@g.ecc.u-tokyo.ac.jp>"]
 
 [deps]
@@ -27,6 +27,7 @@ URIs = "1"
 julia = "1.10"
 
 [extras]
+PackageCompiler = "9b87118b-4619-50d2-8e1e-99f35a4d4d9d"
 Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
