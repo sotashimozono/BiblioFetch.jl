@@ -116,4 +116,4 @@ bibliofetch ls --unread
 - [Usage Guide](@ref) — full walkthrough, job-file reference, vault,
   annotations, SSH tunnel setup.
 - [API Reference](@ref) — every public function with signatures.
-- [Examples](@ref) — runnable Literate notebooks.
+- Examples — runnable Literate notebooks (see sidebar).

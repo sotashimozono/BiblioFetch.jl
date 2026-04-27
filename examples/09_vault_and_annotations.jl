@@ -41,34 +41,35 @@
 # so it runs without touching your home directory.
 
 using BiblioFetch
-using TOML
 
-mktempdir() do vault_dir
-    # --- write two topic files ---
-    open(joinpath(vault_dir, "tensor-networks.toml"), "w") do io
-        TOML.print(
-            io,
-            Dict(
-                "topic" => Dict("name" => "Tensor Networks", "tags" => ["mps", "dmrg"]),
-                "doi" => Dict("list" => ["arxiv:cond-mat/0407066"]),
-            ),
-        )
-    end
-    open(joinpath(vault_dir, "quantum-info.toml"), "w") do io
-        TOML.print(
-            io,
-            Dict(
-                "topic" => Dict("name" => "Quantum Information"),
-                "doi" => Dict("list" => ["arxiv:quant-ph/0301023"]),
-            ),
-        )
-    end
+# Create a temporary vault directory so this example runs without touching
+# your home directory. Each topic gets its own TOML file.
+_vault_demo_dir = mktempdir()
 
-    # --- load the index ---
-    index = load_vault_index(vault_dir)
-    topics = list_topics(index)
-    (length(topics), [t.name for t in topics])
+open(joinpath(_vault_demo_dir, "tensor-networks.toml"), "w") do io
+    BiblioFetch.TOML.print(
+        io,
+        Dict(
+            "topic" => Dict("name" => "Tensor Networks", "tags" => ["mps", "dmrg"]),
+            "doi" => Dict("list" => ["arxiv:cond-mat/0407066"]),
+        ),
+    )
 end
+
+open(joinpath(_vault_demo_dir, "quantum-info.toml"), "w") do io
+    BiblioFetch.TOML.print(
+        io,
+        Dict(
+            "topic" => Dict("name" => "Quantum Information"),
+            "doi" => Dict("list" => ["arxiv:quant-ph/0301023"]),
+        ),
+    )
+end
+
+# Load the index and inspect available topics.
+index  = load_vault_index(_vault_demo_dir)
+topics = list_topics(index)
+(length(topics), sort([t.name for t in topics]))
 
 # `list_topics` returns one `VaultTopic` per file found in the directory.
 #
