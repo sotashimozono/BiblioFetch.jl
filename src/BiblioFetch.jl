@@ -34,6 +34,7 @@ include("io/bibtex.jl")
 include("io/bibtex_import.jl")    # inverse direction: read existing .bib into store
 include("io/graph.jl")            # DOT + Mermaid citation-graph rendering
 include("core/job.jl")            # depends on fetch + store + bibtex
+include("core/vault.jl")          # depends on job + store + bibtex + search
 include("core/watch.jl")          # depends on job.run
 include("cli.jl")
 
@@ -58,6 +59,8 @@ export aps_tdm_url, is_aps_doi
 export elsevier_tdm_url, is_elsevier_doi, elsevier_tdm_auth_headers
 export springer_oa_lookup, is_springer_doi
 export status, NetworkStatus, ProbeResult, is_reachable
+export VaultTopic, VaultIndex, load_vault_index, list_topics, topic_refs
+export vault_add_ref!, vault_fetch!, vault_bib, vault_search
 export cli_main
 # NOTE: `run` is intentionally not exported — call as `BiblioFetch.run(path)` to
 # avoid shadowing `Base.run`.

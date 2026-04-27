@@ -72,6 +72,8 @@ struct FetchJob
     #
     refs::Vector{FetchEntry}       # status=:pending at load
     duplicates::Vector{NTuple{3,String}} # (key, kept_group, rejected_group)
+    # vault topics to inherit refs from (resolved lazily by vault.jl)
+    inherit_topics::Vector{String}
 end
 
 """
@@ -238,6 +240,10 @@ function load_job(path::AbstractString; runtime::Union{Runtime,Nothing}=nothing)
 
     name = String(get(jobsec, "name", basename(dirname(abspath(path)))))
 
+    # [vault] inherit = ["topic-name", …] — stored for later expansion by vault.jl
+    vaultsec = get(cfg, "vault", Dict{String,Any}())
+    inherit_topics = String.(get(vaultsec, "inherit", String[]))
+
     return FetchJob(
         name,
         target,
@@ -257,6 +263,7 @@ function load_job(path::AbstractString; runtime::Union{Runtime,Nothing}=nothing)
         max_refs_per_paper,
         refs,
         dups,
+        inherit_topics,
     )
 end
 

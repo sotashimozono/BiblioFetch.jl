@@ -109,6 +109,7 @@ end
         50,                           # max_refs_per_paper
         BiblioFetch.FetchEntry[],     # refs
         NTuple{3,String}[],           # duplicates
+        String[],                     # inherit_topics
     )
     entries = [
         BiblioFetch.FetchEntry("arxiv:1", "", "arxiv:1"),

@@ -111,14 +111,17 @@ function bibtex_entry(md::AbstractDict; key::AbstractString=_bibtex_key(md))
 end
 
 """
-    write_bibtex(store, path) -> Int
+    write_bibtex(store, path; key_filter = nothing) -> Int
 
 Iterate every `status = "ok"` entry in the store's `.metadata/`, assign a
 `FirstAuthorSurnameYear` citekey (with letter-suffix disambiguation for
 collisions), and write the combined BibTeX to `path`. Returns the number of
-entries written.
+entries written. When `key_filter` is a `Set{String}` of normalized keys only
+those entries are written.
 """
-function write_bibtex(store::Store, path::AbstractString)
+function write_bibtex(
+    store::Store, path::AbstractString; key_filter::Union{Set{String},Nothing}=nothing
+)
     mkpath(dirname(path))
     n = 0
     used = Dict{String,Int}()
@@ -130,6 +133,10 @@ function write_bibtex(store::Store, path::AbstractString)
             isfile(p) || continue
             md = TOML.parsefile(p)
             get(md, "status", "") == "ok" || continue
+            if key_filter !== nothing
+                entry_key = String(get(md, "key", ""))
+                entry_key in key_filter || continue
+            end
 
             base = _bibtex_key(md)
             seen = get(used, base, 0)
