@@ -137,6 +137,20 @@ NetworkStatus
 ProbeResult
 ```
 
+## Vault (topic-based collection)
+
+```@docs
+VaultTopic
+VaultIndex
+load_vault_index
+list_topics
+topic_refs
+vault_add_ref!
+vault_fetch!
+vault_bib
+vault_search
+```
+
 ## CLI
 
 ```@docs
