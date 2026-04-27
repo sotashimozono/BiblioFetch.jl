@@ -154,7 +154,8 @@ function _cmd_list(args)
     i = 1
     while i <= length(args)
         if args[i] == "--tag" && i < length(args)
-            tag_filter = args[i + 1]; i += 2
+            tag_filter = args[i + 1];
+            i += 2
         else
             i += 1
         end
@@ -187,9 +188,15 @@ function _cmd_list(args)
         title_short = length(title) > 60 ? title[1:57] * "…" : title
         starred_mark = Bool(get(md, "starred", false)) ? "★" : " "
         tags_str = let t = get(md, "tags", String[])
-            t isa AbstractVector && !isempty(t) ? " [" * join(String.(t), ",") * "]" : ""
+            if t isa AbstractVector && !isempty(t)
+                " [" * join(String.(t), ",") * "]"
+            else
+                ""
+            end
         end
-        @printf("  %s [%-7s] %-45s  %s%s\n", starred_mark, status, key, title_short, tags_str)
+        @printf(
+            "  %s [%-7s] %-45s  %s%s\n", starred_mark, status, key, title_short, tags_str
+        )
     end
     return 0
 end
@@ -789,34 +796,44 @@ function _cmd_annotate(args)
     ref = first(filter(a -> !startswith(a, "--"), args))
     rt = detect_environment(; probe=false)
     store = open_store(rt.store_root)
-    key = try normalize_key(ref) catch; ref end
+    key = try
+        normalize_key(ref)
+    catch
+        ; ref
+    end
     md = read_metadata(store, key)
     if isempty(md)
         println(stderr, "annotate: not found: $key")
         return 1
     end
     # Ensure annotation fields exist with defaults
-    haskey(md, "tags")        || (md["tags"] = String[])
-    haskey(md, "notes")       || (md["notes"] = "")
+    haskey(md, "tags") || (md["tags"] = String[])
+    haskey(md, "notes") || (md["notes"] = "")
     haskey(md, "read_status") || (md["read_status"] = "unread")
-    haskey(md, "starred")     || (md["starred"] = false)
+    haskey(md, "starred") || (md["starred"] = false)
     # Write to a temp file and open in $EDITOR
     tmp = tempname() * ".toml"
     open(tmp, "w") do io
         println(io, "# Annotate: ", get(md, "title", key))
         println(io, "# read_status: unread | reading | read | skimmed")
         println(io)
-        TOML.print(io, Dict{String,Any}(
-            "tags"        => md["tags"],
-            "notes"       => md["notes"],
-            "read_status" => md["read_status"],
-            "starred"     => md["starred"],
-        ); sorted=true)
+        TOML.print(
+            io,
+            Dict{String,Any}(
+                "tags" => md["tags"],
+                "notes" => md["notes"],
+                "read_status" => md["read_status"],
+                "starred" => md["starred"],
+            );
+            sorted=true,
+        )
     end
     editor = get(ENV, "EDITOR", get(ENV, "VISUAL", "vi"))
     run(Cmd([editor, tmp]))
     # Read back and merge
-    edited = try TOML.parsefile(tmp) catch e
+    edited = try
+        TOML.parsefile(tmp)
+    catch e
         println(stderr, "annotate: could not parse edited file: $(sprint(showerror, e))")
         return 1
     end
@@ -829,7 +846,10 @@ function _cmd_annotate(args)
 end
 
 function _cmd_vault(args)
-    isempty(args) && (println(stderr, "vault: need a subcommand (ls, fetch, bib, add, search)"); return 2)
+    isempty(args) && (
+        println(stderr, "vault: need a subcommand (ls, fetch, bib, add, search)");
+        return 2
+    )
     sub, rest = args[1], args[2:end]
     if sub == "ls"
         index = load_vault_index()
@@ -843,8 +863,9 @@ function _cmd_vault(args)
             for t in topics
                 fname = basename(t.file)
                 tags_str = isempty(t.tags) ? "" : "  [" * join(t.tags, ",") * "]"
-                @printf("  %-30s  %-25s  %2d refs%s\n",
-                    fname, t.name, length(t.refs), tags_str)
+                @printf(
+                    "  %-30s  %-25s  %2d refs%s\n", fname, t.name, length(t.refs), tags_str
+                )
                 isempty(t.notes) || println("    ", t.notes)
             end
         end
@@ -860,7 +881,8 @@ function _cmd_vault(args)
         verbose && (show(stdout, MIME("text/plain"), rt); println(); println())
         results = vault_fetch!(index; topic_name=topic_name, runtime=rt, verbose=verbose)
         for (_, r) in results
-            show(stdout, MIME("text/plain"), r); println()
+            show(stdout, MIME("text/plain"), r);
+            println()
         end
         return 0
     elseif sub == "bib"
@@ -869,9 +891,11 @@ function _cmd_vault(args)
         i = 1
         while i <= length(rest)
             if rest[i] in ("--out", "-o") && i < length(rest)
-                out = rest[i + 1]; i += 2
+                out = rest[i + 1];
+                i += 2
             elseif !startswith(rest[i], "--")
-                topic_name = rest[i]; i += 1
+                topic_name = rest[i];
+                i += 1
             else
                 i += 1
             end
@@ -887,15 +911,18 @@ function _cmd_vault(args)
         i = 1
         while i <= length(rest)
             if rest[i] == "--topic" && i < length(rest)
-                topic_name = rest[i + 1]; i += 2
+                topic_name = rest[i + 1];
+                i += 2
             elseif !startswith(rest[i], "--")
-                ref = rest[i]; i += 1
+                ref = rest[i];
+                i += 1
             else
                 i += 1
             end
         end
         ref === nothing && (println(stderr, "vault add: need a reference"); return 2)
-        topic_name === nothing && (println(stderr, "vault add: need --topic <name>"); return 2)
+        topic_name === nothing &&
+            (println(stderr, "vault add: need --topic <name>"); return 2)
         index = load_vault_index()
         key = vault_add_ref!(topic_name, ref; dir=index.dir)
         println("added $key to topic '$topic_name'")
@@ -961,7 +988,8 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
         return 0
     end
     if args[1] in ("-h", "--help", "help")
-        print(CLI_HELP); return 0
+        print(CLI_HELP);
+        return 0
     end
     cmd, rest = args[1], args[2:end]
     try

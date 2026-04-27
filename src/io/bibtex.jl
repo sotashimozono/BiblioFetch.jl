@@ -120,9 +120,7 @@ entries written. When `key_filter` is a `Set{String}` of normalized keys only
 those entries are written.
 """
 function write_bibtex(
-    store::Store,
-    path::AbstractString;
-    key_filter::Union{Set{String},Nothing}=nothing,
+    store::Store, path::AbstractString; key_filter::Union{Set{String},Nothing}=nothing
 )
     mkpath(dirname(path))
     n = 0

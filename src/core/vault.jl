@@ -19,7 +19,7 @@ A `vault.toml` index (optional) pins the shared store path:
 """
 
 const DEFAULT_VAULT_DIR = joinpath(homedir(), ".config", "bibliofetch", "vault")
-const VAULT_INDEX_FILE  = "vault.toml"
+const VAULT_INDEX_FILE = "vault.toml"
 
 """
     VaultTopic
@@ -111,7 +111,11 @@ Return the normalized keys for all refs in a topic.
 function topic_refs(t::VaultTopic)
     keys = String[]
     for (raw, _) in t.refs
-        try push!(keys, normalize_key(raw)) catch; end
+        try
+            push!(keys, normalize_key(raw))
+        catch
+            ;
+        end
     end
     return keys
 end
@@ -124,9 +128,7 @@ creating the file with an empty [topic] header if it does not exist.
 Returns the normalized key.
 """
 function vault_add_ref!(
-    topic_name::AbstractString,
-    raw_ref::AbstractString;
-    dir::AbstractString=_vault_dir(),
+    topic_name::AbstractString, raw_ref::AbstractString; dir::AbstractString=_vault_dir()
 )
     mkpath(dir)
     fname = endswith(topic_name, ".toml") ? topic_name : topic_name * ".toml"
@@ -138,7 +140,11 @@ function vault_add_ref!(
     list = get!(doisec, "list", String[])
     list isa AbstractVector || (list = Any[list])
     # deduplicate
-    existing = try [normalize_key(String(r)) for r in list] catch; String[] end
+    existing = try
+        [normalize_key(String(r)) for r in list]
+    catch
+        ; String[]
+    end
     key in existing && return key
     push!(list, raw_ref)
     doisec["list"] = list
@@ -146,7 +152,9 @@ function vault_add_ref!(
     if !haskey(cfg, "topic")
         cfg["topic"] = Dict{String,Any}("name" => replace(topic_name, "-" => " "))
     end
-    open(path, "w") do io TOML.print(io, cfg; sorted=true) end
+    open(path, "w") do io
+        TOML.print(io, cfg; sorted=true)
+    end
     return key
 end
 
@@ -164,7 +172,9 @@ function vault_fetch!(
 )
     rt = runtime === nothing ? detect_environment() : runtime
     topics = list_topics(index)
-    topic_name === nothing || filter!(t -> t.name == topic_name || splitext(basename(t.file))[1] == topic_name, topics)
+    topic_name === nothing || filter!(
+        t -> t.name == topic_name || splitext(basename(t.file))[1] == topic_name, topics
+    )
     isempty(topics) && throw(ArgumentError("no matching vault topic: $topic_name"))
     results = Dict{String,Any}()
     for t in topics
@@ -172,16 +182,33 @@ function vault_fetch!(
         # Build a synthetic FetchJob for this topic
         entries = FetchEntry[]
         for (raw, group) in t.refs
-            key = try normalize_key(raw) catch; continue end
+            key = try
+                normalize_key(raw)
+            catch
+                ; continue
+            end
             push!(entries, FetchEntry(key, group, raw))
         end
         job = FetchJob(
-            t.name, index.store, nothing,
+            t.name,
+            index.store,
+            nothing,
             joinpath(index.store, METADATA_DIRNAME, "run.log"),
-            rt.email, rt.proxy, 1, false,
-            collect(DEFAULT_SOURCES), false, :lenient, :pending,
-            false, false, 1, 50,
-            entries, NTuple{3,String}[], String[],
+            rt.email,
+            rt.proxy,
+            1,
+            false,
+            collect(DEFAULT_SOURCES),
+            false,
+            :lenient,
+            :pending,
+            false,
+            false,
+            1,
+            50,
+            entries,
+            NTuple{3,String}[],
+            String[],
         )
         result = BiblioFetch.run(job; verbose=verbose, runtime=rt)
         results[t.name] = result
@@ -205,11 +232,17 @@ function vault_bib(
     end
     # filter to topic keys only
     topics = list_topics(index)
-    filter!(t -> t.name == topic_name || splitext(basename(t.file))[1] == topic_name, topics)
+    filter!(
+        t -> t.name == topic_name || splitext(basename(t.file))[1] == topic_name, topics
+    )
     isempty(topics) && throw(ArgumentError("no matching vault topic: $topic_name"))
     wanted = Set{String}()
     for t in topics, (raw, _) in t.refs
-        try push!(wanted, normalize_key(raw)) catch; end
+        try
+            push!(wanted, normalize_key(raw))
+        catch
+            ;
+        end
     end
     return write_bibtex(store, out; key_filter=wanted)
 end
@@ -228,12 +261,15 @@ function expand_vault_inherit(job::FetchJob)
     extra = FetchEntry[]
     for tname in job.inherit_topics
         matched = filter(
-            t -> t.name == tname || splitext(basename(t.file))[1] == tname,
-            topics,
+            t -> t.name == tname || splitext(basename(t.file))[1] == tname, topics
         )
         isempty(matched) && @warn "vault inherit: topic not found" topic=tname
         for t in matched, (raw, g) in t.refs
-            key = try normalize_key(raw) catch; continue end
+            key = try
+                normalize_key(raw)
+            catch
+                ; continue
+            end
             haskey(seen, key) && continue
             seen[key] = g
             push!(extra, FetchEntry(key, g, raw))
@@ -242,11 +278,25 @@ function expand_vault_inherit(job::FetchJob)
     isempty(extra) && return job
     new_refs = vcat(extra, job.refs)
     return FetchJob(
-        job.name, job.target, job.bibtex, job.log_file,
-        job.email, job.proxy, job.parallel, job.force,
-        job.sources, job.strict_duplicates, job.source_policy, job.on_fail,
-        job.also_arxiv, job.follow_references, job.max_depth, job.max_refs_per_paper,
-        new_refs, job.duplicates, job.inherit_topics,
+        job.name,
+        job.target,
+        job.bibtex,
+        job.log_file,
+        job.email,
+        job.proxy,
+        job.parallel,
+        job.force,
+        job.sources,
+        job.strict_duplicates,
+        job.source_policy,
+        job.on_fail,
+        job.also_arxiv,
+        job.follow_references,
+        job.max_depth,
+        job.max_refs_per_paper,
+        new_refs,
+        job.duplicates,
+        job.inherit_topics,
     )
 end
 
