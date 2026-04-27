@@ -155,4 +155,11 @@ vault_search
 
 ```@docs
 cli_main
+julia_main
+```
+
+## Native app build
+
+```@docs
+build
 ```

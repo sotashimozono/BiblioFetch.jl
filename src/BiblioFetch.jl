@@ -6,6 +6,7 @@ using FileWatching
 using HTTP
 using JSON3
 using Logging
+using PrecompileTools
 using Printf
 using SHA
 using TOML
@@ -37,6 +38,8 @@ include("core/job.jl")            # depends on fetch + store + bibtex
 include("core/vault.jl")          # depends on job + store + bibtex + search
 include("core/watch.jl")          # depends on job.run
 include("cli.jl")
+include("build.jl")               # PackageCompiler helper (optional dep)
+include("precompile_workload.jl") # PrecompileTools warm-up
 
 export detect_environment, load_config, effective_runtime
 export Store, open_store, list_entries, entry_info
@@ -61,7 +64,8 @@ export springer_oa_lookup, is_springer_doi
 export status, NetworkStatus, ProbeResult, is_reachable
 export VaultTopic, VaultIndex, load_vault_index, list_topics, topic_refs
 export vault_add_ref!, vault_fetch!, vault_bib, vault_search
-export cli_main
+export cli_main, julia_main
+export build
 # NOTE: `run` is intentionally not exported — call as `BiblioFetch.run(path)` to
 # avoid shadowing `Base.run`.
 
