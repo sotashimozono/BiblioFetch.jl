@@ -97,27 +97,8 @@ Pass `force=true` to rebuild:
 
     # --- write wrapper script ---------------------------------------------
     mkpath(bindir)
-    wrapper = joinpath(bindir, "bibliofetch")
     julia_bin = joinpath(Sys.BINDIR, "julia")
-
-    if Sys.iswindows()
-        wrapper *= ".cmd"
-        open(wrapper, "w") do io
-            println(io, "@echo off")
-            println(
-                io,
-                "\"$(julia_bin)\" --sysimage \"$(sysimage_path)\" --startup-file=no -e \"using BiblioFetch; exit(cli_main(ARGS))\" -- %*",
-            )
-        end
-    else
-        open(wrapper, "w") do io
-            println(io, "#!/bin/sh")
-            println(io, "exec \"$(julia_bin)\" --sysimage \"$(sysimage_path)\" \\")
-            println(io, "     --startup-file=no \\")
-            println(io, "     -e 'using BiblioFetch; exit(cli_main(ARGS))' -- \"\$@\"")
-        end
-        chmod(wrapper, 0o755)
-    end
+    wrapper = _write_wrapper(bindir, julia_bin, sysimage_path)
     println("Wrapper  : ", wrapper)
 
     # --- PATH hint --------------------------------------------------------
@@ -140,9 +121,93 @@ Pass `force=true` to rebuild:
     return wrapper
 end
 
+"""
+    clean(; sysimage_dir, bindir, verbose) -> Nothing
+
+Remove the sysimage and wrapper script installed by [`build`](@ref).
+
+Deletes:
+- `sysimage_dir/sys.{so,dylib,dll}` — the compiled sysimage
+- `bindir/bibliofetch` (or `bibliofetch.cmd` on Windows) — the wrapper script
+
+The directories themselves are left in place. Silently skips files that do
+not exist unless `verbose=true`.
+
+# Example
+```julia
+using BiblioFetch
+BiblioFetch.clean()                 # remove default installation
+BiblioFetch.clean(verbose=true)     # print each file removed
+```
+"""
+function clean(;
+    sysimage_dir::AbstractString=joinpath(homedir(), ".local", "share", "bibliofetch"),
+    bindir::AbstractString=joinpath(homedir(), ".local", "bin"),
+    verbose::Bool=true,
+    io::IO=stdout,
+)
+    sysimage_dir = expanduser(string(sysimage_dir))
+    bindir = expanduser(string(bindir))
+    sysimage_ext = Sys.iswindows() ? "dll" : (Sys.isapple() ? "dylib" : "so")
+
+    removed = String[]
+
+    sysimage_path = joinpath(sysimage_dir, "sys." * sysimage_ext)
+    if isfile(sysimage_path)
+        rm(sysimage_path)
+        push!(removed, sysimage_path)
+    end
+
+    wrapper = joinpath(bindir, Sys.iswindows() ? "bibliofetch.cmd" : "bibliofetch")
+    if isfile(wrapper)
+        rm(wrapper)
+        push!(removed, wrapper)
+    end
+
+    if verbose
+        if isempty(removed)
+            println(io, "Nothing to remove — no BiblioFetch build artefacts found.")
+        else
+            for f in removed
+                println(io, "Removed: ", f)
+            end
+            println(io, "Done.")
+        end
+    end
+
+    return nothing
+end
+
 function _guess_shell_rc()
     shell = basename(get(ENV, "SHELL", ""))
     shell == "zsh" && return "~/.zshrc"
     shell == "fish" && return "~/.config/fish/config.fish"
     return "~/.bashrc"
+end
+
+# Write the thin shell wrapper that invokes julia with the sysimage.
+# Extracted so it can be tested without invoking PackageCompiler.
+function _write_wrapper(
+    bindir::AbstractString, julia_bin::AbstractString, sysimage_path::AbstractString
+)
+    wrapper = joinpath(bindir, "bibliofetch")
+    if Sys.iswindows()
+        wrapper *= ".cmd"
+        open(wrapper, "w") do io
+            println(io, "@echo off")
+            println(
+                io,
+                "\"$(julia_bin)\" --sysimage \"$(sysimage_path)\" --startup-file=no -e \"using BiblioFetch; exit(cli_main(ARGS))\" -- %*",
+            )
+        end
+    else
+        open(wrapper, "w") do io
+            println(io, "#!/bin/sh")
+            println(io, "exec \"$(julia_bin)\" --sysimage \"$(sysimage_path)\" \\")
+            println(io, "     --startup-file=no \\")
+            println(io, "     -e 'using BiblioFetch; exit(cli_main(ARGS))' -- \"\$@\"")
+        end
+        chmod(wrapper, 0o755)
+    end
+    return wrapper
 end

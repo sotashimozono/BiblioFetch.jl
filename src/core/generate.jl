@@ -1,16 +1,16 @@
 # ---------- Project-skeleton generator ----------
 #
 # `BiblioFetch.generate(path)` materialises a new project directory from
-# the `template/` shipped alongside the package. The template is the
+# the `config/template/` shipped alongside the package. The template is the
 # source of truth for what a minimal BiblioFetch project looks like —
 # keep content there, not here — so changes to the skeleton land by
-# editing `template/` rather than modifying this function.
+# editing `config/template/` rather than modifying this function.
 
 """
     generate(path; force = false) -> String
 
 Create a BiblioFetch project skeleton under `path`. Copies every file
-in the package's `template/` directory (job.toml + README.md at
+in the package's `config/template/` directory (job.toml + README.md at
 present) into `path`, creating intermediate directories as needed.
 
   * `path` — absolute or `~`-prefixed; expanded before use. If it's
@@ -34,10 +34,10 @@ function generate(path::AbstractString; force::Bool=false)
     end
     mkpath(dest)
 
-    src = joinpath(pkgdir(BiblioFetch), "template")
+    src = joinpath(pkgdir(BiblioFetch), "config", "template")
     isdir(src) || throw(
         ErrorException(
-            "template directory missing from package install: $(src) — file a bug"
+            "config/template directory missing from package install: $(src) — file a bug",
         ),
     )
 

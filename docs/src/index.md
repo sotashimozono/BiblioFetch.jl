@@ -5,36 +5,53 @@ CurrentModule = BiblioFetch
 ```
 
 A bulk literature fetcher for Julia: feed it a list of DOIs or arXiv ids, get
-back a local PDF store with TOML metadata and (optionally) a BibTeX file.
+back a local PDF store with TOML metadata, BibTeX export, and an optional
+citation graph.
 
 BiblioFetch is designed to work identically on a laptop with a university
-proxy and on an ssh-reached compute host that reaches the same proxy via
-reverse tunnel — the same command line auto-detects which mode it is in.
+proxy and on an SSH'd compute host that reaches the same proxy via a reverse
+tunnel — the same command auto-detects which mode it is in.
 
-- **Sources tried in order**: [Unpaywall](https://unpaywall.org) (legal OA
-  lookup) → arXiv → direct `doi.org` through a proxy.
-- **Magic-byte verified**: HTML landing pages are rejected rather than saved
-  as bogus PDFs.
+- **Sources tried in order**: Unpaywall (legal OA lookup) → arXiv → Semantic
+  Scholar → direct `doi.org` through a proxy → publisher TDM APIs.
+- **Magic-byte verified**: HTML landing pages are rejected rather than saved as
+  bogus PDFs.
 - **Group-aware**: job files can bucket references into subdirectories.
-- **Metadata-rich**: each fetched paper produces a TOML file with title,
-  authors, year, journal, per-source attempt log, and optional
-  `primary_category`.
+- **Vault**: a topic-TOML collection at `~/.config/bibliofetch/vault/` holds
+  canonical per-topic reference sets; projects can inherit from it without
+  duplicating files on disk.
+- **Annotations**: every paper carries editable tags, notes, read status, and
+  a starred flag — queryable via `bibliofetch ls --tag` / `--unread` /
+  `--starred`.
 
 ## Install
-
-From the Julia REPL:
 
 ```julia
 julia> using Pkg; Pkg.add("BiblioFetch")
 ```
 
-Or, for the CLI launcher, clone the repo:
+### Instant CLI (optional)
+
+Compile a sysimage once so `bibliofetch` starts in under a second:
+
+```julia
+using Pkg
+Pkg.add("PackageCompiler")   # needed only for this step
+
+using BiblioFetch
+BiblioFetch.build()          # ~2–4 min; writes ~/.local/bin/bibliofetch
+```
+
+Make sure `~/.local/bin` is on your `PATH`, then:
 
 ```bash
-git clone https://github.com/sotashimozono/BiblioFetch.jl.git
-cd BiblioFetch.jl
-julia --project=. -e 'using Pkg; Pkg.instantiate()'
-./bin/bibliofetch env
+bibliofetch --help
+```
+
+Rebuild after `Pkg.update("BiblioFetch")`:
+
+```julia
+BiblioFetch.build(force=true)
 ```
 
 ## A 30-second tour
@@ -45,19 +62,19 @@ julia --project=. -e 'using Pkg; Pkg.instantiate()'
 using BiblioFetch
 rt    = detect_environment()
 store = open_store(rt.store_root)
-fetch_paper!(store, "arxiv:1706.03762"; rt)
+fetch_paper!(store, "arxiv:1706.03762"; rt=rt)
 ```
 
-**Batch run** via a job file (`bibliofetch.toml`):
+**Batch run** via a job file:
 
 ```toml
+# job.toml
 [folder]
 target = "./papers"
 bibtex = "refs.bib"
 
 [fetch]
-email    = "you@example.com"
-parallel = 4
+email = "you@example.com"
 
 [doi.transformer]
 list = ["arxiv:1706.03762"]
@@ -69,21 +86,34 @@ list = [
 ]
 ```
 
+```bash
+bibliofetch          # auto-detects job.toml in cwd
+```
+
+or from Julia:
+
 ```julia
-julia> result = BiblioFetch.run("bibliofetch.toml")
-BiblioFetch job 'my-project'
-  target   : /.../papers
-  refs     : 3  (ok=3 failed=0)
-  elapsed  : 6.0s
-  ── condensed-matter  2/2
-      ✓ 10.1103/physrevresearch.1.033027  [unpaywall]
-      ✓ 10.21468/scipostphys.1.1.001      [unpaywall]
-  ── transformer  1/1
-      ✓ arxiv:1706.03762                  [arxiv]
+result = BiblioFetch.run("job.toml")
+```
+
+**Vault** — a topic collection living outside any single project:
+
+```bash
+bibliofetch vault fetch mps-algorithms   # fetch all refs in a vault topic
+bibliofetch vault bib                    # export combined vault.bib
+```
+
+**Annotations** — tagging and reading status:
+
+```bash
+bibliofetch annotate 10.1103/PhysRevB.99.214433   # opens $EDITOR
+bibliofetch ls --tag dmrg
+bibliofetch ls --unread
 ```
 
 ## Where to next
 
-- [Usage Guide](@ref) — full walkthrough, job-file reference, SSH reverse
-  tunnel setup.
+- [Usage Guide](@ref) — full walkthrough, job-file reference, vault,
+  annotations, SSH tunnel setup.
 - [API Reference](@ref) — every public function with signatures.
+- Examples — runnable Literate notebooks (see sidebar).

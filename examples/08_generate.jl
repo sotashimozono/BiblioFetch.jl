@@ -1,7 +1,7 @@
 # # Creating a new project
 #
 # `BiblioFetch.generate(path)` drops a ready-to-edit project skeleton
-# at `path` — the matching `template/` directory inside the package is
+# at `path` — the matching `config/template/` directory inside the package is
 # the single source of truth for what that skeleton contains. It's the
 # one-liner version of "copy the config, write a job.toml, remember
 # what fields go where" — instead you run:
@@ -67,10 +67,10 @@ end
 
 # ## Customising the skeleton
 #
-# The `template/` directory inside the installed package is read
+# The `config/template/` directory inside the installed package is read
 # verbatim — no placeholder substitution happens, so what's on disk
 # over there is exactly what the user gets. Extending the skeleton is
-# a one-file PR: drop a new file into `template/`, optionally update
+# a one-file PR: drop a new file into `config/template/`, optionally update
 # `template/README.md` to mention it, and every subsequent
 # `generate()` call picks it up. No code changes required.
 #

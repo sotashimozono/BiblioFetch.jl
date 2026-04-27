@@ -3,59 +3,140 @@
 [![docs: stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://codes.sota-shimozono.com/BiblioFetch.jl/stable/)
 [![docs: dev](https://img.shields.io/badge/docs-dev-purple.svg)](https://codes.sota-shimozono.com/BiblioFetch.jl/dev/)
 [![Julia](https://img.shields.io/badge/julia-v1.10+-9558b2.svg)](https://julialang.org)
+[![Build Status](https://github.com/sotashimozono/BiblioFetch.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/sotashimozono/BiblioFetch.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![codecov](https://codecov.io/gh/sotashimozono/BiblioFetch.jl/graph/badge.svg)](https://codecov.io/gh/sotashimozono/BiblioFetch.jl)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code Style: Blue](https://img.shields.io/badge/Code%20Style-Blue-4495d1.svg)](https://github.com/invenia/BlueStyle)
 
-<a id="badge-top"></a>
-[![codecov](https://codecov.io/gh/sotashimozono/BiblioFetch.jl/graph/badge.svg)](https://codecov.io/gh/sotashimozono/BiblioFetch.jl)
-[![Build Status](https://github.com/sotashimozono/BiblioFetch.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/sotashimozono/BiblioFetch.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+Bulk literature fetcher for Julia: give it a list of DOIs or arXiv ids, get
+back a local PDF store with TOML metadata, BibTeX export, and a citation graph.
+Designed to work identically on a laptop with a university proxy and on an
+SSH'd compute host that tunnels through the same proxy.
 
-A bulk literature fetcher for Julia: feed it a list of DOIs or arXiv ids,
-get back a local PDF store with TOML metadata. Designed to work identically
-on a laptop with a university proxy and on an ssh'd compute host that reaches
-the same proxy via reverse tunnel.
+---
 
-## Why
+## Table of Contents
 
-- Feed a `refs.txt` of DOIs / arXiv ids, get PDFs on disk in one step.
-- Open-access articles are resolved through **Unpaywall**; physics preprints fall
-  back to **arXiv**; paywalled articles go through a user-supplied **proxy**.
-- Same command line on a laptop and on an ssh-reached compute host — detection
-  picks the right route per host.
+- [Installation](#installation)
+  - [As a Julia library](#as-a-julia-library)
+  - [As a native CLI command](#as-a-native-cli-command)
+- [Quick start](#quick-start)
+- [Project-based workflow](#project-based-workflow)
+- [Vault — topic collections](#vault--topic-collections)
+- [Fetch strategy](#fetch-strategy)
+- [Environment detection & config](#environment-detection--config)
+- [Store layout](#store-layout)
+- [Metadata fields](#metadata-fields)
+- [SSH reverse tunnel](#ssh-reverse-tunnel)
 
-## Install
+---
+
+## Installation
+
+### As a Julia library
 
 ```julia
-julia> using Pkg; Pkg.add("BiblioFetch")
+using Pkg
+Pkg.add("BiblioFetch")
 ```
 
-Or for the CLI launcher, clone and use `bin/bibliofetch`:
+### As a native CLI command
 
-```bash
-git clone https://github.com/sotashimozono/BiblioFetch.jl.git
-cd BiblioFetch.jl
-julia --project=. -e 'using Pkg; Pkg.instantiate()'
-./bin/bibliofetch env
+`BiblioFetch.build()` compiles the package into a sysimage and installs a
+`bibliofetch` wrapper script so the command starts in **under a second**.
+
+```julia
+using Pkg
+Pkg.add("BiblioFetch")
+Pkg.add("PackageCompiler")          # needed once for the build step only
+
+using BiblioFetch
+BiblioFetch.build()                  # takes ~2–4 min on first run
 ```
 
-## Usage
+After the build completes:
+
+```text
+BiblioFetch.build()  [sysimage mode]
+  package   : ~/.julia/packages/BiblioFetch/…
+  sysimage  : ~/.local/share/bibliofetch/sys.so   (~360 MB)
+  bindir    : ~/.local/bin
+  precompile: yes
+…
+Done. Try it:
+    bibliofetch --help
+```
+
+Make sure `~/.local/bin` is on your `PATH` (add to `~/.zshrc` / `~/.bashrc` if
+not):
 
 ```bash
-# See what environment the tool detected (hostname / proxy / mode)
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Rebuild after `Pkg.update("BiblioFetch")`:
+
+```julia
+BiblioFetch.build(force=true)
+```
+
+To remove the sysimage and wrapper script from your system:
+
+```julia
+BiblioFetch.clean()
+```
+
+**`build` options:**
+
+| Keyword | Default | Description |
+| --- | --- | --- |
+| `sysimage_dir` | `~/.local/share/bibliofetch` | Where `sys.so` is written |
+| `bindir` | `~/.local/bin` | Where the `bibliofetch` script is installed |
+| `force` | `false` | Overwrite existing sysimage |
+
+**`clean` options:** same `sysimage_dir` and `bindir` keywords — pass the same
+values you used at build time if you customised them.
+
+---
+
+## Quick start
+
+```bash
+# See detected runtime (hostname, proxy, mode)
 bibliofetch env
 
-# Queue DOIs / arXiv ids (raw args or -f for a file; '#' comments allowed)
-bibliofetch add 10.1103/PhysRevB.99.214433 arxiv:1905.07639
+# Queue single references
+bibliofetch add 10.1103/PhysRevB.99.214433
+bibliofetch add arxiv:1905.07639
+
+# Queue from a file (one ref per line; # comments ok)
 bibliofetch add -f refs.txt
 
-# Fetch everything still pending
+# Download everything queued
 bibliofetch sync
 
-# One-shot
+# One-shot fetch
 bibliofetch fetch 10.21468/SciPostPhys.1.1.001
+
+# List papers in store
+bibliofetch ls
+bibliofetch ls --tag dmrg
+bibliofetch ls --unread
+bibliofetch ls --starred
+
+# Add tags / notes / read status interactively
+bibliofetch annotate 10.1103/PhysRevB.99.214433
+
+# Export BibTeX
+bibliofetch bib
+bibliofetch bib --out ~/papers/project.bib
+
+# Search
+bibliofetch search "tensor network"
+bibliofetch search Vidal --field authors
 ```
 
-Or from Julia directly:
+Or from Julia:
 
 ```julia
 using BiblioFetch
@@ -64,38 +145,146 @@ store = open_store(rt.store_root)
 fetch_paper!(store, "arxiv:1706.03762"; rt)
 ```
 
+---
+
+## Project-based workflow
+
+Create a project skeleton with `bibliofetch init`, fill in the DOIs, then
+run — PDFs land in the configured directory, grouped by sub-topic.
+
+```bash
+bibliofetch init ~/projects/FiniteTemperature
+```
+
+This writes:
+
+```text
+~/projects/FiniteTemperature/
+  job.toml   ← edit this
+  README.md
+```
+
+Edit `job.toml`:
+
+```toml
+[folder]
+target = "papers"          # relative to this file
+bibtex = "refs.bib"        # auto-generated after each run
+
+[fetch]
+email = "you@example.com"  # for Unpaywall
+
+[doi]
+list = [
+  "10.1103/PhysRevB.99.214433",
+  "arxiv:2301.00001",
+]
+
+[doi.foundations]
+list = [
+  "arxiv:cond-mat/0407066",
+]
+```
+
+Run from any directory:
+
+```bash
+cd ~/projects/FiniteTemperature
+bibliofetch                   # auto-detects job.toml in cwd
+
+# or explicitly
+bibliofetch run job.toml
+```
+
+### Inheriting from a vault
+
+If you maintain a vault of canonical references (see below), a project can
+pull them in without duplicating them on disk:
+
+```toml
+[vault]
+inherit = ["mps-algorithms", "quantum-stat-mech"]
+
+[doi]
+list = ["10.1103/PhysRevB.99.214433"]   # project-specific only
+```
+
+`bibliofetch bib` then outputs a single `.bib` covering both vault and project
+references.
+
+---
+
+## Vault — topic collections
+
+A vault is a set of topic TOML files living at
+`~/.config/bibliofetch/vault/` (override with `$BIBLIOFETCH_VAULT`).
+Each file defines a named topic:
+
+```toml
+# ~/.config/bibliofetch/vault/mps-algorithms.toml
+[topic]
+name  = "MPS Algorithms"
+tags  = ["tensor-network", "dmrg"]
+notes = "Core MPS/DMRG references"
+
+[doi]
+list = [
+  "arxiv:cond-mat/0407066",
+  "10.1103/RevModPhys.93.045003",
+]
+```
+
+An optional `vault.toml` pins the shared store path and topic order:
+
+```toml
+# ~/.config/bibliofetch/vault/vault.toml
+topics = ["mps-algorithms.toml", "dmrg-foundations.toml"]
+store  = "~/papers/vault"
+```
+
+**Vault CLI:**
+
+```bash
+bibliofetch vault ls                         # list all topics
+bibliofetch vault add arxiv:1234.5678 --topic mps-algorithms
+bibliofetch vault fetch                      # fetch all topics
+bibliofetch vault fetch mps-algorithms       # fetch one topic
+bibliofetch vault bib                        # export all as vault.bib
+bibliofetch vault bib mps-algorithms         # export one topic
+bibliofetch vault search "DMRG"              # search across all vault papers
+```
+
+---
+
 ## Fetch strategy
 
-Given a DOI or arXiv id, BiblioFetch tries in order:
+For each DOI or arXiv id, BiblioFetch tries sources in order until a valid PDF
+is obtained:
 
-1. **Unpaywall** — queries the OA-lookup API (needs `email` in config); accepts
-   the `best_oa_location` PDF URL if present.
-2. **arXiv** — if the reference *is* an arXiv id, or if Crossref metadata
-   points at an arXiv preprint (`relation.has-preprint`), or if a title search
-   finds a match, the PDF is pulled from `arxiv.org/pdf/<id>.pdf`.
-3. **Direct landing** — `https://doi.org/<doi>` through the configured proxy,
-   but only when that proxy is reachable. HTML landing pages are detected via
-   `%PDF` header check and rejected as failures rather than silently saved.
+1. **Unpaywall** — OA-lookup API (requires `email` in config). Accepts the
+   `best_oa_location` PDF URL if present.
+2. **arXiv** — if the ref is an arXiv id, or Crossref metadata links a
+   preprint, or a title search finds a match.
+3. **Semantic Scholar** — alternative OA PDF set.
+4. **Direct landing** — `https://doi.org/<doi>` through the configured proxy
+   (only when the proxy is reachable).
+5. **Publisher TDM APIs** — APS Harvest, Elsevier ScienceDirect, Springer
+   Nature OA (each requires an API key in config).
 
-Every downloaded file is verified by magic bytes; you won't end up with a
-directory full of HTML files pretending to be PDFs.
+Every downloaded file is verified by `%PDF` magic bytes — HTML landing pages
+are detected and rejected rather than silently saved as broken PDFs.
 
-## Environment detection
+**Citation graph expansion**: set `[graph] follow_references = true` in
+`job.toml` to automatically queue referenced DOIs up to `max_depth` hops.
 
-`detect_environment()` auto-configures the fetch route:
+---
 
-- `gethostname()` selects a profile from `~/.config/bibliofetch/config.toml`
-  (env var `BIBLIOFETCH_CONFIG` overrides the path).
-- `HTTPS_PROXY` / `HTTP_PROXY` env variables override the profile's proxy.
-- The selected proxy (or direct route if none) is probed against Crossref.
-- Mode is classified as:
-  - `:direct` — proxy reachable, non-localhost host.
-  - `:tunneled` — proxy is `localhost` / `127.0.0.1` (assumed ssh reverse tunnel).
-  - `:oa_only` — no proxy, or unreachable; only Unpaywall + arXiv paths are tried.
+## Environment detection & config
 
-### Config example
+`detect_environment()` auto-configures the fetch route based on hostname and
+proxy reachability.
 
-A commented template ships at [`config/config.toml`](config/config.toml). Copy it once:
+Copy the annotated config template once:
 
 ```bash
 mkdir -p ~/.config/bibliofetch
@@ -103,54 +292,52 @@ cp "$(julia -e 'using BiblioFetch; print(pkgdir(BiblioFetch))')/config/config.to
    ~/.config/bibliofetch/config.toml
 ```
 
-The template covers both `[defaults]` and per-host `[profiles.<hostname>]`
-examples (proxy, reverse-tunnel, store_root overrides). `bibliofetch env`
-points at it when no config is found.
+Example `config.toml`:
 
-### Examples
+```toml
+[defaults]
+email      = "you@university.edu"
+store_root = "~/papers"
 
-Runnable demo jobs ship in [`examples/`](examples/) and are published as
-narrated walkthroughs in the docs:
+[profiles.mylaptop]
+proxy      = "http://proxy.univ.example:8080"
 
-- [`minimal-job.toml`](examples/minimal-job.toml) — one DOI, all defaults
-- [`citation-graph-job.toml`](examples/citation-graph-job.toml) — seed + one-hop reference graph
-- [`publisher-tdm-job.toml`](examples/publisher-tdm-job.toml) — APS / Elsevier / Springer routes
-
-```bash
-bibliofetch run examples/minimal-job.toml
+[profiles.computehost]
+proxy      = "http://localhost:18080"   # reverse SSH tunnel
+store_root = "~/scratch/papers"
 ```
 
-### SSH reverse tunnel
+`bibliofetch env` shows the detected profile and reachability status.
 
-If your compute host can't reach the university proxy directly, forward it
-from your laptop:
+**Detected modes:**
 
-```bash
-ssh -R 18080:proxy.univ.example:8080 compute-node
-# Or persistently via ~/.ssh/config:
-#   Host compute-node
-#     RemoteForward 18080 proxy.univ.example:8080
-```
+| Mode | Meaning |
+|---|---|
+| `:direct` | Proxy reachable, non-localhost |
+| `:tunneled` | Proxy is `localhost` / `127.0.0.1` (SSH tunnel) |
+| `:oa_only` | No proxy or unreachable — Unpaywall + arXiv only |
 
-The `compute-node` profile above then transparently routes fetches through
-your laptop's proxy connection for the duration of the ssh session.
+---
 
 ## Store layout
 
-```
+```text
 <target>/
-  <safekey>.pdf              # PDFs for ungrouped entries live at the root
-  <group>/<safekey>.pdf      # grouped entries land in their subdirectory
-  <group>/<sub>/<safekey>.pdf  # arbitrary nesting via [doi.group.sub]
-  refs.bib                   # optional, when [folder].bibtex is set
-  .metadata/<safekey>.toml   # one hidden TOML per paper (status, source, attempts)
-  .metadata/run.log          # append-only run log
+  <safekey>.pdf                    # ungrouped PDFs at root
+  <group>/<safekey>.pdf            # grouped PDFs
+  <group>/<sub>/<safekey>.pdf      # nested groups via [doi.group.sub]
+  <safekey>__preprint.pdf          # arXiv preprint alongside publisher PDF
+  refs.bib                         # BibTeX (when [folder].bibtex is set)
+  .metadata/<safekey>.toml         # one TOML per paper (editable)
+  .metadata/run.log                # append-only run log
 ```
 
-The metadata store is plain TOML so rsync, grep, git, and manual edits all
-Just Work. There's no SQLite / binary index to corrupt.
+The metadata store is plain TOML — rsync, grep, git, and manual edits all
+work without any special tooling.
 
-Metadata fields populated after a successful Crossref lookup:
+---
+
+## Metadata fields
 
 ```toml
 key        = "10.1103/physrevresearch.1.033027"
@@ -158,35 +345,36 @@ title      = "Excitation of a uniformly moving atom through vacuum fluctuations"
 authors    = ["Anatoly A. Svidzinsky"]
 journal    = "Physical Review Research"
 year       = 2019
-source     = "unpaywall"      # which route succeeded
-pdf_path   = "…"
-status     = "ok"
+status     = "ok"           # pending | ok | failed | skipped
+source     = "unpaywall"    # which route succeeded
+pdf_path   = "/home/…/10_1103_physrevresearch.1.033027.pdf"
 is_oa      = true
-fetched_at = "2026-04-23T…"
+fetched_at = "2026-04-23T12:34:56"
+sha256     = "abcd1234…"
+
+# Annotation fields (set via `bibliofetch annotate`)
+tags        = ["quantum-optics", "vacuum-fluctuations"]
+notes       = "Key result in Eq. (15); cf. Fulling–Davies–Unruh effect."
+read_status = "read"        # unread | reading | read | skimmed
+starred     = false
 ```
-
-## Roadmap
-
-- [x] `env` / `add` / `sync` / `fetch` / `list` / `info` CLI commands
-- [x] Unpaywall + arXiv + proxy direct-landing cascade with `%PDF` verification
-- [x] Per-host profile config; env var override
-- [x] BibTeX export
-- [x] Citation graph traversal (Crossref `reference` / `is-referenced-by-count`)
-- [x] Publisher TDM APIs (APS, Elsevier, Springer OA) — legal bulk endpoints
-- [x] `BiblioFetch.generate(path)` — onboarding helper that drops the `template/` skeleton into a new project directory
 
 ---
 
-## Repository setup reminders
+## SSH reverse tunnel
 
-1. **GitHub Repository Settings**
-    * [ ] **Actions Permissions**: `Settings > Actions > General` → **"Read and write permissions"** (required for Documenter / TagBot).
-    * [ ] **Allow Auto-merge**: (Recommended) Enable **"Allow auto-merge"** in `Settings > General`.
-2. **Testing & Code Quality**
-    * [ ] **Codecov**: Register repo at [Codecov](https://app.codecov.io/), add `CODECOV_TOKEN` secret, update badge above.
-3. **Documentation (optional)**
-    * [x] Rename `.github/workflows/Documentation.yml.disabled` → `.yml` to enable doc builds.
-    * [ ] Set GitHub Pages source to `gh-pages` branch after first successful build (required once the workflow first succeeds).
-4. **Personalization**
-    * [x] LICENSE year/name
-    * [x] Badge URLs point to `sotashimozono/BiblioFetch.jl`
+Forward your university proxy to a compute host:
+
+```bash
+ssh -R 18080:proxy.univ.example:8080 computehost
+```
+
+Or persistently in `~/.ssh/config`:
+
+```text
+Host computehost
+  RemoteForward 18080 proxy.univ.example:8080
+```
+
+Set `proxy = "http://localhost:18080"` in the `computehost` profile. BiblioFetch
+detects the localhost proxy and classifies the mode as `:tunneled` automatically.

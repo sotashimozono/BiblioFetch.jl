@@ -62,8 +62,8 @@ end
     end
 end
 
-@testset "generate: output byte-for-byte matches template/" begin
-    tmpl_dir = joinpath(pkgdir(BiblioFetch), "template")
+@testset "generate: output byte-for-byte matches config/template/" begin
+    tmpl_dir = joinpath(pkgdir(BiblioFetch), "config", "template")
     mktempdir() do dest
         BiblioFetch.generate(dest)
         for f in _EXPECTED_SKELETON_FILES
