@@ -67,7 +67,7 @@ open(joinpath(_vault_demo_dir, "quantum-info.toml"), "w") do io
 end
 
 # Load the index and inspect available topics.
-index  = load_vault_index(_vault_demo_dir)
+index = load_vault_index(_vault_demo_dir)
 topics = list_topics(index)
 (length(topics), sort([t.name for t in topics]))
 
