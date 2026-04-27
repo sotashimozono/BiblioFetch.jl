@@ -37,7 +37,7 @@ function generate(path::AbstractString; force::Bool=false)
     src = joinpath(pkgdir(BiblioFetch), "config", "template")
     isdir(src) || throw(
         ErrorException(
-            "config/template directory missing from package install: $(src) — file a bug"
+            "config/template directory missing from package install: $(src) — file a bug",
         ),
     )
 
