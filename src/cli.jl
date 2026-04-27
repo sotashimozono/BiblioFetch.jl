@@ -1040,3 +1040,17 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
         return 1
     end
 end
+
+"""
+    julia_main() -> Cint
+
+Entry point for `PackageCompiler.create_app`. Delegates to `cli_main(ARGS)`.
+"""
+function julia_main()::Cint
+    try
+        return cli_main(ARGS)
+    catch e
+        println(stderr, "bibliofetch: fatal: ", sprint(showerror, e))
+        return 1
+    end
+end
