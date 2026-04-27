@@ -187,7 +187,9 @@ end
 
 # Write the thin shell wrapper that invokes julia with the sysimage.
 # Extracted so it can be tested without invoking PackageCompiler.
-function _write_wrapper(bindir::AbstractString, julia_bin::AbstractString, sysimage_path::AbstractString)
+function _write_wrapper(
+    bindir::AbstractString, julia_bin::AbstractString, sysimage_path::AbstractString
+)
     wrapper = joinpath(bindir, "bibliofetch")
     if Sys.iswindows()
         wrapper *= ".cmd"

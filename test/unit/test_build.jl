@@ -27,7 +27,7 @@ end
 # _write_wrapper (Unix only — Windows path tested via Sys.iswindows() guard)
 # ---------------------------------------------------------------------------
 @testset "_write_wrapper: writes executable shell script" begin
-    Sys.iswindows() && return   # wrapper format differs; skip on Windows CI
+    Sys.iswindows() && return nothing   # wrapper format differs; skip on Windows CI
 
     mktempdir() do bindir
         julia_bin = "/usr/local/bin/julia"
@@ -59,9 +59,7 @@ end
         touch(sysimage_path)   # fake existing sysimage
 
         @test_throws ErrorException BiblioFetch.build(;
-            sysimage_dir=dir,
-            bindir=dir,
-            force=false,
+            sysimage_dir=dir, bindir=dir, force=false
         )
     end
 end
