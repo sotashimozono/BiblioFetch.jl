@@ -1,0 +1,17 @@
+# Minimal BiblioFetch job — 1 reference, defaults everywhere.
+#
+#   bibliofetch run examples/minimal-job.toml
+#
+# The PDF lands at examples/papers/. Relative `target` paths resolve
+# against this TOML's directory regardless of the caller's cwd.
+
+[folder]
+target = "papers"
+
+[doi]
+list = [
+    # Schollwöck, "The density-matrix renormalization group in the age of
+    # matrix product states" — canonical MPS/DMRG review, always reachable
+    # via the arXiv route.
+    "arxiv:1008.3477",
+]

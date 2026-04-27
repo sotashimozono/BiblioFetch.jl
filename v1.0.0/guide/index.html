@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Usage Guide · BiblioFetch.jl</title><meta name="title" content="Usage Guide · BiblioFetch.jl"/><meta property="og:title" content="Usage Guide · BiblioFetch.jl"/><meta property="twitter:title" content="Usage Guide · BiblioFetch.jl"/><meta name="description" content="Documentation for BiblioFetch.jl."/><meta property="og:description" content="Documentation for BiblioFetch.jl."/><meta property="twitter:description" content="Documentation for BiblioFetch.jl."/><meta property="og:url" content="https://codes.sota-shimozono.com/BiblioFetch.jl/stable/guide/"/><meta property="twitter:url" content="https://codes.sota-shimozono.com/BiblioFetch.jl/stable/guide/"/><link rel="canonical" href="https://codes.sota-shimozono.com/BiblioFetch.jl/stable/guide/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script><link href="../assets/favicon.ico" rel="icon" type="image/x-icon"/><link href="../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.png" alt="BiblioFetch.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">BiblioFetch.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li class="is-active"><a class="tocitem" href>Usage Guide</a><ul class="internal"><li><a class="tocitem" href="#Global-configuration"><span>Global configuration</span></a></li><li><a class="tocitem" href="#Per-job-TOML-files"><span>Per-job TOML files</span></a></li><li><a class="tocitem" href="#SSH-reverse-tunnel-—-running-on-a-compute-node"><span>SSH reverse tunnel — running on a compute node</span></a></li><li><a class="tocitem" href="#Programmatic-use"><span>Programmatic use</span></a></li><li><a class="tocitem" href="#CLI-cheatsheet"><span>CLI cheatsheet</span></a></li></ul></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../examples/01_minimal/">Minimal</a></li><li><a class="tocitem" href="../examples/02_citation_graph/">Citation Graph</a></li><li><a class="tocitem" href="../examples/03_publisher_tdm/">Publisher Tdm</a></li><li><a class="tocitem" href="../examples/04_dmrg_foundations/">Dmrg Foundations</a></li><li><a class="tocitem" href="../examples/05_fetch_policies/">Fetch Policies</a></li><li><a class="tocitem" href="../examples/06_arxiv_versions/">Arxiv Versions</a></li><li><a class="tocitem" href="../examples/07_also_arxiv/">Also Arxiv</a></li><li><a class="tocitem" href="../examples/08_generate/">Generate</a></li></ul></li><li><a class="tocitem" href="../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Usage Guide</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Usage Guide</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/sotashimozono/BiblioFetch.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/sotashimozono/BiblioFetch.jl/blob/main/docs/src/guide.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Usage-Guide"><a class="docs-heading-anchor" href="#Usage-Guide">Usage Guide</a><a id="Usage-Guide-1"></a><a class="docs-heading-anchor-permalink" href="#Usage-Guide" title="Permalink"></a></h1><h2 id="Global-configuration"><a class="docs-heading-anchor" href="#Global-configuration">Global configuration</a><a id="Global-configuration-1"></a><a class="docs-heading-anchor-permalink" href="#Global-configuration" title="Permalink"></a></h2><p>BiblioFetch looks up <code>~/.config/bibliofetch/config.toml</code> (or the path in the <code>BIBLIOFETCH_CONFIG</code> env var) for settings that are <em>per-machine</em>, not per-project:</p><pre><code class="language-toml hljs">[defaults]
+email      = &quot;you@example.com&quot;     # used for Unpaywall OA lookups
+store_root = &quot;~/papers&quot;             # fallback store for the `add`/`fetch` commands
+
+[profiles.laptop]                   # matches gethostname() == &quot;laptop&quot;
+proxy = &quot;http://proxy.univ.example:8080&quot;
+
+[profiles.compute-node]             # ssh host — reaches the proxy via reverse tunnel
+proxy = &quot;http://localhost:18080&quot;
+
+[profiles.default]                  # hosts that match no profile fall here
+# (omit `proxy` here to operate in `:oa_only` mode — Unpaywall + arXiv only)</code></pre><p>Check what BiblioFetch thinks it is running on:</p><pre><code class="language-bash hljs">$ bibliofetch env
+BiblioFetch runtime
+  hostname        : panza
+  profile         : laptop
+  config          : /home/you/.config/bibliofetch/config.toml
+  mode            : direct
+  proxy           : http://proxy.univ.example:8080  [profile]
+  reachable (via proxy): true
+  store root      : /home/you/papers
+  email           : you@example.com</code></pre><p><code>mode</code> is one of:</p><ul><li><code>:direct</code> — proxy reachable, non-localhost host. All sources work (including paywalled direct <code>doi.org</code> landing).</li><li><code>:tunneled</code> — proxy is <code>localhost</code> / <code>127.0.0.1</code>. Assumed to be an <code>ssh -R</code>-style reverse tunnel.</li><li><code>:oa_only</code> — no proxy (or unreachable). Only Unpaywall + arXiv are tried. Paywalled articles are silently skipped because we have no route to them.</li></ul><h2 id="Per-job-TOML-files"><a class="docs-heading-anchor" href="#Per-job-TOML-files">Per-job TOML files</a><a id="Per-job-TOML-files-1"></a><a class="docs-heading-anchor-permalink" href="#Per-job-TOML-files" title="Permalink"></a></h2><p>A job file tells <code>BiblioFetch.run</code> <em>what</em> to fetch, <em>where</em> to put it, and how (which sources, how many in parallel, BibTeX or no). It has four sections:</p><pre><code class="language-toml hljs">[folder]
+target = &quot;./papers&quot;             # REQUIRED. PDFs and .metadata/ go here.
+bibtex = &quot;./refs.bib&quot;           # OPTIONAL. Generate a .bib after fetching.
+
+[fetch]
+email             = &quot;you@example.com&quot;    # overrides global config
+parallel          = 4                     # concurrent downloads, default 1
+force             = false                 # re-download even if already present
+sources           = [&quot;unpaywall&quot;, &quot;arxiv&quot;, &quot;direct&quot;]
+strict_duplicates = false                 # default: warn + keep first
+
+[log]
+file = &quot;./run.log&quot;              # OPTIONAL. Default: {target}/.metadata/run.log
+
+[doi]                           # ungrouped — goes to {target}/
+list = [&quot;10.1103/PhysRevB.99.214433&quot;]
+
+[doi.condensed-matter]          # goes to {target}/condensed-matter/
+list = [
+    &quot;arxiv:1106.6068&quot;,
+    &quot;10.1103/PhysRevLett.96.110404&quot;,
+]
+
+[doi.condensed-matter.haldane]  # nested — {target}/condensed-matter/haldane/
+list = [&quot;arxiv:cond-mat/0506438&quot;]
+
+[doi.ml]                        # {target}/ml/
+list = [&quot;arxiv:1706.03762&quot;]</code></pre><p>Given the file above, running</p><pre><code class="language-julia hljs">result = BiblioFetch.run(&quot;bibliofetch.toml&quot;)</code></pre><p>produces this tree:</p><pre><code class="nohighlight hljs">papers/
+├── 10.1103_physrevb.99.214433.pdf
+├── condensed-matter/
+│   ├── arxiv__1106.6068.pdf
+│   ├── 10.1103_physrevlett.96.110404.pdf
+│   └── haldane/
+│       └── arxiv__cond-mat_0506438.pdf
+├── ml/
+│   └── arxiv__1706.03762.pdf
+├── refs.bib
+└── .metadata/
+    ├── 10.1103_physrevb.99.214433.toml
+    ├── arxiv__1106.6068.toml
+    ├── ...
+    └── run.log</code></pre><h3 id="Reference-forms"><a class="docs-heading-anchor" href="#Reference-forms">Reference forms</a><a id="Reference-forms-1"></a><a class="docs-heading-anchor-permalink" href="#Reference-forms" title="Permalink"></a></h3><p>The <code>list</code> accepts any of:</p><table><tr><th style="text-align: right">Form</th><th style="text-align: right">Example</th></tr><tr><td style="text-align: right">Bare DOI</td><td style="text-align: right"><code>10.1103/PhysRevB.99.214433</code></td></tr><tr><td style="text-align: right">DOI URL</td><td style="text-align: right"><code>https://doi.org/10.1103/PhysRevB.99.214433</code></td></tr><tr><td style="text-align: right"><code>doi:</code> prefix</td><td style="text-align: right"><code>doi:10.1103/...</code></td></tr><tr><td style="text-align: right">New-style arXiv</td><td style="text-align: right"><code>1706.03762</code>, <code>1706.03762v2</code>, <code>arxiv:1706.03762</code></td></tr><tr><td style="text-align: right">Legacy arXiv</td><td style="text-align: right"><code>cond-mat/0608208</code></td></tr><tr><td style="text-align: right">arXiv URL</td><td style="text-align: right"><code>https://arxiv.org/abs/1706.03762</code></td></tr></table><p><code>is_doi</code> and <code>is_arxiv</code> predicates are available in the API if you need them.</p><h3 id="Duplicate-handling"><a class="docs-heading-anchor" href="#Duplicate-handling">Duplicate handling</a><a id="Duplicate-handling-1"></a><a class="docs-heading-anchor-permalink" href="#Duplicate-handling" title="Permalink"></a></h3><p>If the same normalized key appears in two groups:</p><ul><li>Default (<code>strict_duplicates = false</code>): emit a warning like <code>same DOI has appeared; keeping first occurrence key=... kept=A rejected=B</code> and only fetch once, assigning it to the first group (alphabetical) it appeared in. The <code>FetchJob.duplicates</code> field records every rejection.</li><li><code>strict_duplicates = true</code>: <code>load_job</code> throws <code>ArgumentError</code> before any network activity.</li></ul><h3 id="Source-filtering"><a class="docs-heading-anchor" href="#Source-filtering">Source filtering</a><a id="Source-filtering-1"></a><a class="docs-heading-anchor-permalink" href="#Source-filtering" title="Permalink"></a></h3><p><code>sources = [...]</code> restricts which of the three routes are tried and in what order. Useful when:</p><ul><li><code>[&quot;arxiv&quot;]</code> — arXiv only. Skips Crossref / Unpaywall entirely. Good for a list of preprints where you already know DOIs aren&#39;t assigned.</li><li><code>[&quot;unpaywall&quot;, &quot;arxiv&quot;]</code> — legal OA only. Even on a machine with proxy reachable, skip the direct paywalled landing attempt.</li><li><code>[&quot;direct&quot;]</code> — force-test whether your proxy route works end-to-end.</li></ul><h2 id="SSH-reverse-tunnel-—-running-on-a-compute-node"><a class="docs-heading-anchor" href="#SSH-reverse-tunnel-—-running-on-a-compute-node">SSH reverse tunnel — running on a compute node</a><a id="SSH-reverse-tunnel-—-running-on-a-compute-node-1"></a><a class="docs-heading-anchor-permalink" href="#SSH-reverse-tunnel-—-running-on-a-compute-node" title="Permalink"></a></h2><p>You have proxy access on your laptop but your actual compute is on an ssh host that cannot reach the university proxy directly. Forward it:</p><pre><code class="language-bash hljs"># ~/.ssh/config
+Host compute-node
+    HostName     compute.internal
+    User         you
+    RemoteForward 18080 proxy.univ.example:8080</code></pre><p>Now when you <code>ssh compute-node</code>, the compute host sees <code>localhost:18080</code> as a proxy that is really your laptop&#39;s connection to the university.</p><p>On <code>compute-node</code>, put this in <code>~/.config/bibliofetch/config.toml</code>:</p><pre><code class="language-toml hljs">[defaults]
+email = &quot;you@example.com&quot;
+
+[profiles.compute-node]
+proxy = &quot;http://localhost:18080&quot;</code></pre><p>The next time you run <code>bibliofetch run …</code> on <code>compute-node</code>, it transparently routes paywalled fetches through your laptop&#39;s proxy. Close the ssh session and the tunnel closes with it; BiblioFetch falls back to <code>:oa_only</code> mode on the compute host until you reconnect.</p><h2 id="Programmatic-use"><a class="docs-heading-anchor" href="#Programmatic-use">Programmatic use</a><a id="Programmatic-use-1"></a><a class="docs-heading-anchor-permalink" href="#Programmatic-use" title="Permalink"></a></h2><pre><code class="language-julia hljs">using BiblioFetch
+
+# Build a Store manually (same layout, no job file)
+rt    = detect_environment()
+store = open_store(rt.store_root)
+
+# Fetch one paper into a subdirectory
+fetch_paper!(store, &quot;arxiv:1706.03762&quot;; rt=rt, group=&quot;ml&quot;)
+
+# Or load a job + inspect before running
+job    = load_job(&quot;bibliofetch.toml&quot;)
+result = BiblioFetch.run(job; verbose=false)
+for e in result.entries
+    e.status === :failed || continue
+    println(e.key, &quot;: &quot;, e.error)
+    for a in e.attempts
+        println(&quot;  &quot;, a.source, &quot; (&quot;, a.duration_s, &quot;s): &quot;,
+                a.error === nothing ? &quot;ok&quot; : a.error)
+    end
+end</code></pre><h2 id="CLI-cheatsheet"><a class="docs-heading-anchor" href="#CLI-cheatsheet">CLI cheatsheet</a><a id="CLI-cheatsheet-1"></a><a class="docs-heading-anchor-permalink" href="#CLI-cheatsheet" title="Permalink"></a></h2><pre><code class="nohighlight hljs">bibliofetch env                         # show detected runtime
+bibliofetch run &lt;job.toml&gt;              # execute a job
+bibliofetch bib &lt;dir&gt; [--out path]      # regenerate refs.bib for a store dir
+bibliofetch add &lt;ref&gt;...                # queue into the global store
+bibliofetch sync [--force]              # fetch pending/failed in the global store
+bibliofetch fetch &lt;ref&gt; [--force]       # one-shot into the global store
+bibliofetch list [--all]                # list global store entries
+bibliofetch info &lt;ref&gt;                  # show stored metadata</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../examples/01_minimal/">Minimal »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 27 April 2026 02:23">Monday 27 April 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
