@@ -47,7 +47,7 @@ then retry:
     end
 
     sysimage_dir = expanduser(string(sysimage_dir))
-    bindir       = expanduser(string(bindir))
+    bindir = expanduser(string(bindir))
     sysimage_ext = Sys.iswindows() ? "dll" : (Sys.isapple() ? "dylib" : "so")
     sysimage_path = joinpath(sysimage_dir, "sys." * sysimage_ext)
 
@@ -81,19 +81,19 @@ Pass `force=true` to rebuild:
     if isfile(precompile_file)
         @eval Main PackageCompiler.create_sysimage(
             [:BiblioFetch];
-            sysimage_path=$sysimage_path,
-            project=$pkg_dir,
-            precompile_execution_file=$precompile_file,
+            sysimage_path=($sysimage_path),
+            project=($pkg_dir),
+            precompile_execution_file=($precompile_file),
         )
     else
         @eval Main PackageCompiler.create_sysimage(
-            [:BiblioFetch];
-            sysimage_path=$sysimage_path,
-            project=$pkg_dir,
+            [:BiblioFetch]; sysimage_path=($sysimage_path), project=($pkg_dir)
         )
     end
     elapsed = round(time() - t0; digits=1)
-    println("\nSysimage written in $(elapsed)s  ($(round(filesize(sysimage_path)/1024^2; digits=1)) MB).")
+    println(
+        "\nSysimage written in $(elapsed)s  ($(round(filesize(sysimage_path)/1024^2; digits=1)) MB).",
+    )
 
     # --- write wrapper script ---------------------------------------------
     mkpath(bindir)
@@ -104,7 +104,10 @@ Pass `force=true` to rebuild:
         wrapper *= ".cmd"
         open(wrapper, "w") do io
             println(io, "@echo off")
-            println(io, "\"$(julia_bin)\" --sysimage \"$(sysimage_path)\" --startup-file=no -e \"using BiblioFetch; exit(cli_main(ARGS))\" -- %*")
+            println(
+                io,
+                "\"$(julia_bin)\" --sysimage \"$(sysimage_path)\" --startup-file=no -e \"using BiblioFetch; exit(cli_main(ARGS))\" -- %*",
+            )
         end
     else
         open(wrapper, "w") do io
@@ -139,7 +142,7 @@ end
 
 function _guess_shell_rc()
     shell = basename(get(ENV, "SHELL", ""))
-    shell == "zsh"  && return "~/.zshrc"
+    shell == "zsh" && return "~/.zshrc"
     shell == "fish" && return "~/.config/fish/config.fish"
     return "~/.bashrc"
 end
