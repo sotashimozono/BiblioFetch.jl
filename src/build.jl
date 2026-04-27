@@ -140,6 +140,62 @@ Pass `force=true` to rebuild:
     return wrapper
 end
 
+"""
+    clean(; sysimage_dir, bindir, verbose) -> Nothing
+
+Remove the sysimage and wrapper script installed by [`build`](@ref).
+
+Deletes:
+- `sysimage_dir/sys.{so,dylib,dll}` — the compiled sysimage
+- `bindir/bibliofetch` (or `bibliofetch.cmd` on Windows) — the wrapper script
+
+The directories themselves are left in place. Silently skips files that do
+not exist unless `verbose=true`.
+
+# Example
+```julia
+using BiblioFetch
+BiblioFetch.clean()                 # remove default installation
+BiblioFetch.clean(verbose=true)     # print each file removed
+```
+"""
+function clean(;
+    sysimage_dir::AbstractString=joinpath(homedir(), ".local", "share", "bibliofetch"),
+    bindir::AbstractString=joinpath(homedir(), ".local", "bin"),
+    verbose::Bool=true,
+)
+    sysimage_dir = expanduser(string(sysimage_dir))
+    bindir = expanduser(string(bindir))
+    sysimage_ext = Sys.iswindows() ? "dll" : (Sys.isapple() ? "dylib" : "so")
+
+    removed = String[]
+
+    sysimage_path = joinpath(sysimage_dir, "sys." * sysimage_ext)
+    if isfile(sysimage_path)
+        rm(sysimage_path)
+        push!(removed, sysimage_path)
+    end
+
+    wrapper = joinpath(bindir, Sys.iswindows() ? "bibliofetch.cmd" : "bibliofetch")
+    if isfile(wrapper)
+        rm(wrapper)
+        push!(removed, wrapper)
+    end
+
+    if verbose
+        if isempty(removed)
+            println("Nothing to remove — no BiblioFetch build artefacts found.")
+        else
+            for f in removed
+                println("Removed: ", f)
+            end
+            println("Done.")
+        end
+    end
+
+    return nothing
+end
+
 function _guess_shell_rc()
     shell = basename(get(ENV, "SHELL", ""))
     shell == "zsh" && return "~/.zshrc"

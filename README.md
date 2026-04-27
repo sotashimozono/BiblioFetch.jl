@@ -80,13 +80,22 @@ Rebuild after `Pkg.update("BiblioFetch")`:
 BiblioFetch.build(force=true)
 ```
 
-**Options:**
+To remove the sysimage and wrapper script from your system:
+
+```julia
+BiblioFetch.clean()
+```
+
+**`build` options:**
 
 | Keyword | Default | Description |
 | --- | --- | --- |
 | `sysimage_dir` | `~/.local/share/bibliofetch` | Where `sys.so` is written |
 | `bindir` | `~/.local/bin` | Where the `bibliofetch` script is installed |
 | `force` | `false` | Overwrite existing sysimage |
+
+**`clean` options:** same `sysimage_dir` and `bindir` keywords — pass the same
+values you used at build time if you customised them.
 
 ---
 

@@ -162,4 +162,5 @@ julia_main
 
 ```@docs
 build
+clean
 ```

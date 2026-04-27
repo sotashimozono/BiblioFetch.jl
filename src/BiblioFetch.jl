@@ -65,7 +65,7 @@ export status, NetworkStatus, ProbeResult, is_reachable
 export VaultTopic, VaultIndex, load_vault_index, list_topics, topic_refs
 export vault_add_ref!, vault_fetch!, vault_bib, vault_search
 export cli_main, julia_main
-export build
+export build, clean
 # NOTE: `run` is intentionally not exported — call as `BiblioFetch.run(path)` to
 # avoid shadowing `Base.run`.
 
