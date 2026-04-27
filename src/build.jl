@@ -1,36 +1,42 @@
 """
-    build(; destdir, bindir, force) -> String
+    build(; sysimage_dir, bindir, force) -> String
 
-Compile BiblioFetch into a standalone native app using PackageCompiler.jl,
-then symlink (or copy) the resulting `bibliofetch` binary into `bindir`.
+Compile BiblioFetch into a sysimage using PackageCompiler.jl (`create_sysimage`
+with `incremental=true`), then write a thin shell wrapper into `bindir`.
+
+Using a sysimage (rather than `create_app`) avoids the isolated-build errors
+that `create_app` triggers for packages with binary C extensions (HTTP →
+MbedTLS). It also produces a much smaller artefact (~40 MB vs ~300 MB) because
+the Julia runtime is not bundled — the system-installed `julia` is reused.
 
 After a successful build, `bibliofetch` starts in under a second.
 
 # Arguments
-- `destdir`: where the compiled app bundle is written.
-  Default: `~/.local/share/bibliofetch-app`
-- `bindir`: where to install the `bibliofetch` symlink.
-  Default: `~/.local/bin` (already on PATH for most Linux / macOS setups)
-- `force`: pass `true` to overwrite an existing build. Default: `false`
+- `sysimage_dir`: directory where `sys.so` (Linux/macOS) or `sys.dll` (Windows)
+  is written. Default: `~/.local/share/bibliofetch`
+- `bindir`: where the `bibliofetch` wrapper script is installed.
+  Default: `~/.local/bin`
+- `force`: overwrite an existing sysimage. Default: `false`
 
 # Example
 ```julia
+using Pkg; Pkg.add("PackageCompiler")   # once
 using BiblioFetch
-BiblioFetch.build()          # first-time setup, takes ~3–5 min
-BiblioFetch.build(force=true) # rebuild after updating the package
+BiblioFetch.build()                      # ~2–4 min, run once per Julia version
+BiblioFetch.build(force=true)            # rebuild after Pkg.update()
 ```
 """
 function build(;
-    destdir::AbstractString=joinpath(homedir(), ".local", "share", "bibliofetch-app"),
+    sysimage_dir::AbstractString=joinpath(homedir(), ".local", "share", "bibliofetch"),
     bindir::AbstractString=joinpath(homedir(), ".local", "bin"),
     force::Bool=false,
 )
-    # --- require PackageCompiler -------------------------------------------
+    # --- require PackageCompiler (soft dependency) -------------------------
     try
         @eval Main using PackageCompiler
     catch
         error("""
-PackageCompiler.jl is not installed. Install it first:
+PackageCompiler.jl is not installed. Add it first:
 
     using Pkg; Pkg.add("PackageCompiler")
 
@@ -40,14 +46,16 @@ then retry:
 """)
     end
 
-    destdir = expanduser(string(destdir))
-    bindir = expanduser(string(bindir))
+    sysimage_dir = expanduser(string(sysimage_dir))
+    bindir       = expanduser(string(bindir))
+    sysimage_ext = Sys.iswindows() ? "dll" : (Sys.isapple() ? "dylib" : "so")
+    sysimage_path = joinpath(sysimage_dir, "sys." * sysimage_ext)
 
-    if isdir(destdir) && !force
+    if isfile(sysimage_path) && !force
         error("""
-Build directory already exists: $destdir
+Sysimage already exists: $sysimage_path
 
-Pass `force=true` to overwrite:
+Pass `force=true` to rebuild:
     BiblioFetch.build(force=true)
 """)
     end
@@ -55,75 +63,83 @@ Pass `force=true` to overwrite:
     pkg_dir = pkgdir(BiblioFetch)
     precompile_file = joinpath(pkg_dir, "src", "precompile_workload.jl")
 
-    println("BiblioFetch.build()")
-    println("  package  : ", pkg_dir)
-    println("  destdir  : ", destdir)
-    println("  bindir   : ", bindir)
-    println("  precompile: ", isfile(precompile_file) ? precompile_file : "(none)")
+    println("BiblioFetch.build()  [sysimage mode]")
+    println("  package   : ", pkg_dir)
+    println("  sysimage  : ", sysimage_path)
+    println("  bindir    : ", bindir)
+    println("  precompile: ", isfile(precompile_file) ? "yes" : "none")
     println()
-    println("Compiling … this takes 3–5 minutes on first run.")
+    println("Compiling … this takes 2–4 minutes on first run.")
     flush(stdout)
 
+    mkpath(sysimage_dir)
+
     t0 = time()
-    kw = if isfile(precompile_file)
-        (; precompile_execution_file=precompile_file, force=force)
+    # incremental=true (default) builds on top of the existing sysimage, so
+    # binary-extension packages like MbedTLS/HTTP are already compiled and the
+    # isolated-build failure that plagues create_app does not occur.
+    if isfile(precompile_file)
+        @eval Main PackageCompiler.create_sysimage(
+            [:BiblioFetch];
+            sysimage_path=$sysimage_path,
+            project=$pkg_dir,
+            precompile_execution_file=$precompile_file,
+        )
     else
-        (; force=force)
+        @eval Main PackageCompiler.create_sysimage(
+            [:BiblioFetch];
+            sysimage_path=$sysimage_path,
+            project=$pkg_dir,
+        )
     end
-    @eval Main PackageCompiler.create_app($pkg_dir, $destdir; $kw...)
     elapsed = round(time() - t0; digits=1)
-    println("\nCompilation done in $(elapsed)s.")
+    println("\nSysimage written in $(elapsed)s  ($(round(filesize(sysimage_path)/1024^2; digits=1)) MB).")
 
-    # --- install symlink / copy -------------------------------------------
-    app_bin = if Sys.iswindows()
-        joinpath(destdir, "bin", "bibliofetch.exe")
-    else
-        joinpath(destdir, "bin", "bibliofetch")
-    end
-
-    isfile(app_bin) || error("Expected binary not found at: $app_bin")
-
+    # --- write wrapper script ---------------------------------------------
     mkpath(bindir)
-    link = joinpath(bindir, Sys.iswindows() ? "bibliofetch.exe" : "bibliofetch")
-
-    if islink(link) || isfile(link)
-        rm(link)
-    end
+    wrapper = joinpath(bindir, "bibliofetch")
+    julia_bin = joinpath(Sys.BINDIR, "julia")
 
     if Sys.iswindows()
-        cp(app_bin, link)
+        wrapper *= ".cmd"
+        open(wrapper, "w") do io
+            println(io, "@echo off")
+            println(io, "\"$(julia_bin)\" --sysimage \"$(sysimage_path)\" --startup-file=no -e \"using BiblioFetch; exit(cli_main(ARGS))\" -- %*")
+        end
     else
-        symlink(app_bin, link)
+        open(wrapper, "w") do io
+            println(io, "#!/bin/sh")
+            println(io, "exec \"$(julia_bin)\" --sysimage \"$(sysimage_path)\" \\")
+            println(io, "     --startup-file=no \\")
+            println(io, "     -e 'using BiblioFetch; exit(cli_main(ARGS))' -- \"\$@\"")
+        end
+        chmod(wrapper, 0o755)
     end
-    println("Installed: ", link, " → ", app_bin)
+    println("Wrapper  : ", wrapper)
 
-    # --- PATH hint -----------------------------------------------------------
+    # --- PATH hint --------------------------------------------------------
     path_dirs = split(get(ENV, "PATH", ""), Sys.iswindows() ? ';' : ':')
     if bindir ∉ path_dirs
-        shell_rc = _guess_shell_rc()
+        rc = _guess_shell_rc()
         println()
         println("⚠  $bindir is not on your PATH.")
-        println("   Add this line to $(shell_rc):")
+        println("   Add to $(rc):")
         println()
         println("       export PATH=\"$bindir:\$PATH\"")
         println()
-        println("   Then reload your shell:  source $(shell_rc)")
+        println("   Then: source $(rc)")
     else
         println()
-        println("All done!  Try it:")
+        println("Done. Try it:")
         println("    bibliofetch --help")
     end
 
-    return link
+    return wrapper
 end
 
 function _guess_shell_rc()
     shell = basename(get(ENV, "SHELL", ""))
-    if shell == "zsh"
-        return "~/.zshrc"
-    elseif shell == "fish"
-        return "~/.config/fish/config.fish"
-    else
-        return "~/.bashrc"
-    end
+    shell == "zsh"  && return "~/.zshrc"
+    shell == "fish" && return "~/.config/fish/config.fish"
+    return "~/.bashrc"
 end
