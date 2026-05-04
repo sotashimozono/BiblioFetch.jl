@@ -29,15 +29,17 @@ end
     mktempdir() do root
         store = open_store(root)
         key = "arxiv:1706.03762"
-        @test BiblioFetch.pdf_path(store, key) == joinpath(root, "arxiv__1706.03762.pdf")
+        slug = BiblioFetch._safe_key(key)
+        @test startswith(slug, "arxiv__1706.03762__")
+        @test BiblioFetch.pdf_path(store, key) == joinpath(root, slug * ".pdf")
         @test BiblioFetch.pdf_path(store, key; group="ml") ==
-            joinpath(root, "ml", "arxiv__1706.03762.pdf")
+            joinpath(root, "ml", slug * ".pdf")
         @test BiblioFetch.pdf_path(store, key; group="/cond-mat/haldane/") ==
-            joinpath(root, "cond-mat", "haldane", "arxiv__1706.03762.pdf")
+            joinpath(root, "cond-mat", "haldane", slug * ".pdf")
 
         # metadata path is always flat under .metadata/
         @test BiblioFetch.metadata_path(store, key) ==
-            joinpath(root, BiblioFetch.METADATA_DIRNAME, "arxiv__1706.03762.toml")
+            joinpath(root, BiblioFetch.METADATA_DIRNAME, slug * ".toml")
 
         # reject path traversal
         @test_throws ArgumentError BiblioFetch.pdf_path(store, key; group="../evil")

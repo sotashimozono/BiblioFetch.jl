@@ -28,7 +28,15 @@ function open_store(root::AbstractString)
 end
 
 function _safe_key(key::AbstractString)
-    # Filesystem-safe slug from a DOI or arxiv id.
+    # Filesystem-safe slug from a DOI or arxiv id. Suffix with an 8-hex SHA1
+    # prefix of the original key so distinct keys (e.g. DOIs containing `_` vs
+    # `/`) cannot collide on disk.
+    s = _legacy_safe_key(key)
+    h = bytes2hex(SHA.sha1(codeunits(String(key))))[1:8]
+    return string(s, "__", h)
+end
+
+function _legacy_safe_key(key::AbstractString)
     s = replace(String(key), r"[^A-Za-z0-9._:\-/]" => "_")
     s = replace(s, ":" => "__")
     s = replace(s, "/" => "_")
@@ -46,12 +54,22 @@ function _normalize_group(group::AbstractString)
     return join(segments, '/')
 end
 
-metadata_path(s::Store, key) = joinpath(s.root, METADATA_DIRNAME, _safe_key(key) * ".toml")
+function metadata_path(s::Store, key)
+    new = joinpath(s.root, METADATA_DIRNAME, _safe_key(key) * ".toml")
+    isfile(new) && return new
+    legacy = joinpath(s.root, METADATA_DIRNAME, _legacy_safe_key(key) * ".toml")
+    isfile(legacy) && return legacy
+    return new
+end
 
 function pdf_path(s::Store, key; group::AbstractString="")
     g = _normalize_group(group)
     dir = isempty(g) ? s.root : joinpath(s.root, g)
-    return joinpath(dir, _safe_key(key) * ".pdf")
+    new = joinpath(dir, _safe_key(key) * ".pdf")
+    isfile(new) && return new
+    legacy = joinpath(dir, _legacy_safe_key(key) * ".pdf")
+    isfile(legacy) && return legacy
+    return new
 end
 
 # Companion-PDF path used by the `[fetch].also_arxiv` flag: when the primary
@@ -61,7 +79,11 @@ end
 function preprint_pdf_path(s::Store, key; group::AbstractString="")
     g = _normalize_group(group)
     dir = isempty(g) ? s.root : joinpath(s.root, g)
-    return joinpath(dir, _safe_key(key) * "__preprint.pdf")
+    new = joinpath(dir, _safe_key(key) * "__preprint.pdf")
+    isfile(new) && return new
+    legacy = joinpath(dir, _legacy_safe_key(key) * "__preprint.pdf")
+    isfile(legacy) && return legacy
+    return new
 end
 
 has_metadata(s::Store, key) = isfile(metadata_path(s, key))
