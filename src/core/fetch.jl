@@ -58,7 +58,9 @@ const DEFAULT_SOURCES = (:unpaywall, :arxiv, :direct)
 # `:aps` = APS Harvest TDM API (needs Bearer token in APS_API_KEY).
 # Like `:s2` it's opt-in; users who have institutional APS access turn it on
 # in their job's `[fetch].sources`.
-const KNOWN_SOURCES = (:unpaywall, :arxiv, :direct, :s2, :aps, :elsevier, :springer)
+const KNOWN_SOURCES = (
+    :unpaywall, :arxiv, :direct, :s2, :aps, :elsevier, :springer, :openalex
+)
 
 # Source classification used by `source_policy`:
 #
@@ -72,7 +74,7 @@ const KNOWN_SOURCES = (:unpaywall, :arxiv, :direct, :s2, :aps, :elsevier, :sprin
 #
 #   * PREPRINT_SOURCES = routes that deliver preprints / aggregated copies.
 #     Never produces a "strict" success; excluded outright in strict mode.
-const PUBLISHER_SOURCES = (:unpaywall, :aps, :elsevier, :springer, :direct)
+const PUBLISHER_SOURCES = (:unpaywall, :aps, :elsevier, :springer, :openalex, :direct)
 const PREPRINT_SOURCES = (:arxiv, :s2)
 
 # source_policy: which sources count as a "true-source" fetch.
@@ -411,6 +413,45 @@ function fetch_paper!(
                 isempty(merged) || (md["referenced_dois"] = merged)
             end
         end
+    end
+
+    # 1c) OpenAlex (opt-in; metadata superset + alternate OA PDF set)
+    if want(:openalex) && (doi !== nothing || arxiv !== nothing)
+        verbose && @info "→ OpenAlex lookup" key
+        oa_ref = arxiv !== nothing ? "arxiv:$(arxiv)" : "doi:$(doi)"
+        pdf, oa_meta = openalex_lookup(oa_ref; mailto=rt.email, proxy=rt.proxy)
+        if !isempty(oa_meta)
+            # Backfill metadata only if earlier sources didn't already provide it.
+            # Mirrors the :s2 branch's pattern: title / year / journal / authors /
+            # abstract, each guarded against overwriting non-empty values.
+            isempty(get(md, "title", "")) &&
+                haskey(oa_meta, "title") &&
+                !isempty(oa_meta["title"]) &&
+                (md["title"] = string(oa_meta["title"][1]))
+            if isempty(String(get(md, "journal", "")))
+                ct = get(oa_meta, "container-title", String[])
+                isempty(ct) || (md["journal"] = string(ct[1]))
+            end
+            if get(md, "year", nothing) in (nothing, "")
+                dp = get(get(oa_meta, "issued", Dict()), "date-parts", [[nothing]])
+                y = length(dp) >= 1 && length(dp[1]) >= 1 ? dp[1][1] : nothing
+                y === nothing || (md["year"] = y)
+            end
+            if isempty(get(md, "authors", String[]))
+                authors_oa = get(oa_meta, "author", [])
+                if !isempty(authors_oa)
+                    md["authors"] = [
+                        strip(
+                            string(get(a, "given", "")) * " " * string(get(a, "family", ""))
+                        ) for a in authors_oa
+                    ]
+                end
+            end
+            isempty(String(get(md, "abstract", ""))) &&
+                haskey(oa_meta, "abstract") &&
+                (md["abstract"] = String(oa_meta["abstract"]))
+        end
+        pdf === nothing || push!(candidates, (:openalex, pdf))
     end
 
     # 2) arXiv
