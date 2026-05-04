@@ -582,8 +582,8 @@ function _run_one!(
     if lock === nothing
         _log_entry(logio, e, dt)
     else
-        Base.lock(lock) do ;
-            _log_entry(logio, e, dt);
+        Base.lock(lock) do
+            _log_entry(logio, e, dt)
         end
     end
 end

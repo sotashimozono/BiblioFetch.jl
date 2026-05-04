@@ -30,7 +30,7 @@ include("core/dedup.jl")          # depends on store + sha256 from fetch
 include("core/doctor.jl")         # depends on store + sha256_file from fetch
 include("core/search.jl")         # depends on store + refs (_normalize_group)
 include("core/stats.jl")          # depends on store + METADATA_DIRNAME
-include("core/status.jl")         # depends on env (Runtime) + sources (USER_AGENT)
+include("core/status.jl")         # depends on env (Runtime) + sources (user_agent)
 include("io/bibtex.jl")
 include("io/bibtex_import.jl")    # inverse direction: read existing .bib into store
 include("io/graph.jl")            # DOT + Mermaid citation-graph rendering

@@ -110,10 +110,7 @@ function detect_environment(; probe::Bool=true)
 
     env_px = _env_proxy()
     profile_px = get(profile, "proxy", nothing)
-    if profile_px === ""
-        ;
-        profile_px = nothing;
-    end
+    profile_px = (profile_px == "" ? nothing : profile_px)
 
     proxy, source = if env_px !== nothing
         (env_px, :env)
