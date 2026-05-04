@@ -56,8 +56,10 @@ function csl_entry(md::AbstractDict; id::AbstractString=_bibtex_key(md))
     if authors isa AbstractVector && !isempty(authors)
         parts = [_csl_author_parts(String(a)) for a in authors]
         # drop entries that ended up entirely empty (e.g., a stray "" in the list)
-        parts = [p for p in parts if !isempty(get(p, "family", "")) ||
-                                     !isempty(get(p, "given", ""))]
+        parts = [
+            p for
+            p in parts if !isempty(get(p, "family", "")) || !isempty(get(p, "given", ""))
+        ]
         isempty(parts) || (out["author"] = parts)
     end
 

@@ -47,7 +47,7 @@ end
 
 @testset "csl_entry: explicit id override" begin
     md = Dict{String,Any}(
-        "key" => "10.1/dummy", "authors" => ["Alice Brown"], "year" => 2020,
+        "key" => "10.1/dummy", "authors" => ["Alice Brown"], "year" => 2020
     )
     e = csl_entry(md; id="MyKey2020")
     @test e["id"] == "MyKey2020"
