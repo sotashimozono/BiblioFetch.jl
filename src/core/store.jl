@@ -40,6 +40,8 @@ end
 function _normalize_group(group::AbstractString)
     g = strip(String(group), '/')
     isempty(g) && return ""
+    g = replace(g, '\\' => '/')   # normalize Windows separators first
+    isabspath(g) && throw(ArgumentError("group path must be relative: $(group)"))
     segments = split(g, '/'; keepempty=false)
     any(s -> s == ".." || s == ".", segments) &&
         throw(ArgumentError("group path may not contain '.' or '..': $(group)"))
