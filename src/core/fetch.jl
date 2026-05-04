@@ -134,7 +134,7 @@ function _http_download_pdf(
     tmp = dest * ".part"
 
     headers = Pair{String,String}[
-        "User-Agent" => USER_AGENT, "Accept" => "application/pdf,*/*"
+        "User-Agent" => user_agent(), "Accept" => "application/pdf,*/*"
     ]
     append!(headers, extra_headers)
 

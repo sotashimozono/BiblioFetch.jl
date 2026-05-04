@@ -46,7 +46,7 @@ function _do_probe(
     to = Int(round(timeout))
     try
         kw = (;
-            headers=["User-Agent" => USER_AGENT],
+            headers=["User-Agent" => user_agent()],
             connect_timeout=to,
             readtimeout=to,
             status_exception=false,

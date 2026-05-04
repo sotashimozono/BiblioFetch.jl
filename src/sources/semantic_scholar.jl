@@ -72,7 +72,7 @@ function s2_lookup(
     s2_key = _s2_key(ref)
     url = base_url * URIs.escapeuri(s2_key) * "?fields=" * URIs.escapeuri(_S2_FIELDS)
 
-    headers = Pair{String,String}["User-Agent" => USER_AGENT]
+    headers = Pair{String,String}["User-Agent" => user_agent()]
     eff_key = _s2_api_key(api_key)
     eff_key === nothing || push!(headers, "x-api-key" => eff_key)
 
