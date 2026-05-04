@@ -92,6 +92,63 @@ function _parse_arxiv_atom(xml::AbstractString)
     )
 end
 
+# ---------- title-similarity guard helpers ----------
+
+# Tokenize a title: lowercase, drop non-[a-z0-9 ] noise, split on whitespace.
+function _title_tokens(s::AbstractString)
+    return split(replace(lowercase(String(s)), r"[^a-z0-9 ]" => " "))
+end
+
+"""
+    _title_similarity(a, b) -> Float64
+
+Jaccard similarity on lowercased token bigrams of two titles. Returns 0.0
+if either title is empty. Falls back to token-set Jaccard when one side
+has fewer than two tokens (so a single-word title can still match itself).
+"""
+function _title_similarity(a::AbstractString, b::AbstractString)
+    (isempty(a) || isempty(b)) && return 0.0
+    ta = _title_tokens(a)
+    tb = _title_tokens(b)
+    (isempty(ta) || isempty(tb)) && return 0.0
+
+    # Bigram path (preferred for multi-word titles).
+    if length(ta) >= 2 && length(tb) >= 2
+        A = Set(collect(zip(ta[1:(end - 1)], ta[2:end])))
+        B = Set(collect(zip(tb[1:(end - 1)], tb[2:end])))
+        union_sz = length(union(A, B))
+        return union_sz == 0 ? 0.0 : length(intersect(A, B)) / union_sz
+    end
+
+    # Fallback: token-set Jaccard for very short (single-token) titles.
+    A = Set(ta)
+    B = Set(tb)
+    union_sz = length(union(A, B))
+    return union_sz == 0 ? 0.0 : length(intersect(A, B)) / union_sz
+end
+
+"""
+    _surname_overlaps(query_author, candidate_authors) -> Bool
+
+True when the last whitespace-delimited token of `query_author` matches
+the last token of any name in `candidate_authors` (case-insensitive).
+Used as a rescue path when title similarity falls below threshold.
+"""
+function _surname_overlaps(
+    query_author::AbstractString, candidate_authors::Vector{<:AbstractString}
+)
+    qparts = split(strip(query_author))
+    isempty(qparts) && return false
+    qsur = lowercase(String(last(qparts)))
+    isempty(qsur) && return false
+    for ca in candidate_authors
+        cparts = split(strip(ca))
+        isempty(cparts) && continue
+        lowercase(String(last(cparts))) == qsur && return true
+    end
+    return false
+end
+
 # ---------- arXiv HTTP API ----------
 
 """
@@ -186,10 +243,15 @@ end
 
 """
     arxiv_search_by_title(title; authors, proxy, timeout,
-                          base_url = ARXIV_API_URL) -> String or nothing
+                          base_url = ARXIV_API_URL,
+                          similarity_threshold = 0.8) -> String or nothing
 
-Fallback: hit the arXiv API by title (and optionally first author) and return the
-first matching arXiv id. Approximate — use as a last resort.
+Fallback: hit the arXiv API by title (and optionally first author) and return
+the matching arXiv id when the candidate's own title clears
+`similarity_threshold` (Jaccard on lowercased token bigrams). Falls back to a
+first-author last-name match when the title score is below threshold; returns
+`nothing` if neither rescues. Prevents silently attaching Reply / Comment /
+Erratum papers as the canonical preprint.
 """
 function arxiv_search_by_title(
     title::AbstractString;
@@ -200,6 +262,7 @@ function arxiv_search_by_title(
     max_retries::Int=DEFAULT_MAX_RETRIES,
     base_delay::Real=DEFAULT_BASE_DELAY,
     sleep_fn=Base.sleep,
+    similarity_threshold::Real=0.8,
 )
     q = "ti:\"" * replace(title, '"' => ' ') * "\""
     isempty(authors) || (q *= " AND au:\"" * replace(first(authors), '"' => ' ') * "\"")
@@ -214,6 +277,21 @@ function arxiv_search_by_title(
     )
     (resp === nothing || resp.status != 200) && return nothing
     body = String(resp.body)
+
+    parsed = _parse_arxiv_atom(body)
+    parsed === nothing && return nothing
+
+    sim = _title_similarity(title, parsed.title)
+    if sim < similarity_threshold
+        author_match =
+            !isempty(authors) && any(a -> _surname_overlaps(a, parsed.authors), authors)
+        if !author_match
+            @debug "arxiv_search_by_title: title similarity too low" wanted = title got =
+                parsed.title sim
+            return nothing
+        end
+    end
+
     m = match(r"<id>https?://arxiv\.org/abs/([^<]+)</id>"i, body)
     m === nothing && return nothing
     id = m.captures[1]
