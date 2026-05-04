@@ -37,10 +37,7 @@ end
 @testset "_doaj_to_crossref_shape: full bibjson record" begin
     bib = Dict{String,Any}(
         "title" => "A Vetted OA Paper",
-        "author" => [
-            Dict("name" => "Smith, Alice"),
-            Dict("name" => "Jones, Bob"),
-        ],
+        "author" => [Dict("name" => "Smith, Alice"), Dict("name" => "Jones, Bob")],
         "year" => "2023",
         "journal" => Dict("title" => "Open Journal of Examples"),
         "abstract" => "An abstract.",
@@ -65,11 +62,10 @@ end
 
 @testset "_doaj_to_crossref_shape: author with mononym + missing year" begin
     bib = Dict{String,Any}(
-        "title" => "Edge Cases",
-        "author" => [
+        "title" => "Edge Cases", "author" => [
             Dict("name" => "Mononym"),
             Dict("name" => ""),                # skipped — empty
-        ],
+        ]
     )
     meta = BiblioFetch._doaj_to_crossref_shape(bib)
     @test meta["author"] == [Dict("given" => "", "family" => "Mononym")]
@@ -89,10 +85,16 @@ end
 @testset "_doaj_pdf_link: picks first pdf-typed link" begin
     bib = Dict{String,Any}(
         "link" => [
-            Dict("type" => "fulltext", "content_type" => "text/html",
-                 "url" => "https://oa.example/landing.html"),
-            Dict("type" => "fulltext", "content_type" => "application/pdf",
-                 "url" => "https://oa.example/paper.pdf"),
+            Dict(
+                "type" => "fulltext",
+                "content_type" => "text/html",
+                "url" => "https://oa.example/landing.html",
+            ),
+            Dict(
+                "type" => "fulltext",
+                "content_type" => "application/pdf",
+                "url" => "https://oa.example/paper.pdf",
+            ),
         ],
     )
     @test BiblioFetch._doaj_pdf_link(bib) == "https://oa.example/paper.pdf"
@@ -101,8 +103,11 @@ end
 @testset "_doaj_pdf_link: falls back to .pdf URL suffix" begin
     bib = Dict{String,Any}(
         "link" => [
-            Dict("type" => "fulltext", "content_type" => "",
-                 "url" => "https://oa.example/paper.pdf"),
+            Dict(
+                "type" => "fulltext",
+                "content_type" => "",
+                "url" => "https://oa.example/paper.pdf",
+            ),
         ],
     )
     @test BiblioFetch._doaj_pdf_link(bib) == "https://oa.example/paper.pdf"
@@ -111,8 +116,11 @@ end
 @testset "_doaj_pdf_link: no pdf candidate → nothing" begin
     bib = Dict{String,Any}(
         "link" => [
-            Dict("type" => "fulltext", "content_type" => "text/html",
-                 "url" => "https://oa.example/landing.html"),
+            Dict(
+                "type" => "fulltext",
+                "content_type" => "text/html",
+                "url" => "https://oa.example/landing.html",
+            ),
         ],
     )
     @test BiblioFetch._doaj_pdf_link(bib) === nothing
@@ -216,10 +224,7 @@ end
     # Connection refused: point at a freed port. Disable retries for a fast test.
     dead_port = _free_port_doaj()
     pdf, meta = BiblioFetch.doaj_lookup(
-        "10.1234/x";
-        base_url="http://127.0.0.1:$(dead_port)/",
-        timeout=2,
-        max_retries=0,
+        "10.1234/x"; base_url="http://127.0.0.1:$(dead_port)/", timeout=2, max_retries=0
     )
     @test pdf === nothing
     @test meta == Dict{String,Any}()

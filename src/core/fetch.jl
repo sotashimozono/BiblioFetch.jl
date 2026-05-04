@@ -553,9 +553,8 @@ function fetch_paper!(
                 doaj_authors = get(doaj_meta, "author", Dict{String,Any}[])
                 if !isempty(doaj_authors)
                     md["authors"] = [
-                        string(get(a, "given", "")) *
-                        " " *
-                        string(get(a, "family", "")) for a in doaj_authors
+                        string(get(a, "given", "")) * " " * string(get(a, "family", "")) for
+                        a in doaj_authors
                     ]
                 end
             end
