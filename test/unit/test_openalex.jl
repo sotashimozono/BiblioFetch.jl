@@ -37,11 +37,7 @@ end
 @testset "_openalex_abstract_from_inverted_index" begin
     # Out-of-order inverted index: tokens at positions 0, 1, 2, 3, 4
     idx = Dict{String,Any}(
-        "Recent" => [0],
-        "advances" => [1],
-        "in" => [2],
-        "machine" => [3],
-        "learning" => [4],
+        "Recent" => [0], "advances" => [1], "in" => [2], "machine" => [3], "learning" => [4]
     )
     @test BiblioFetch._openalex_abstract_from_inverted_index(idx) ==
         "Recent advances in machine learning"
@@ -67,7 +63,7 @@ end
         "title" => "A Mock OpenAlex Paper",
         "publication_year" => 2024,
         "primary_location" => Dict{String,Any}(
-            "source" => Dict{String,Any}("display_name" => "Mock Journal"),
+            "source" => Dict{String,Any}("display_name" => "Mock Journal")
         ),
         "authorships" => [
             Dict{String,Any}(
@@ -77,9 +73,7 @@ end
                 "author" => Dict{String,Any}("display_name" => "Bob Q. Baker")
             ),
         ],
-        "abstract_inverted_index" => Dict{String,Any}(
-            "Hello" => [0], "world" => [1]
-        ),
+        "abstract_inverted_index" => Dict{String,Any}("Hello" => [0], "world" => [1]),
     )
     meta = BiblioFetch._openalex_to_crossref_shape(work)
     @test meta["title"] == ["A Mock OpenAlex Paper"]
@@ -209,9 +203,7 @@ end
 
 @testset "openalex_lookup: closed-access record returns metadata, pdf=nothing" begin
     _with_mock_oa(_oa_handler) do base
-        pdf, meta = BiblioFetch.openalex_lookup(
-            "doi:10.1/closed"; base_url=base * "works/"
-        )
+        pdf, meta = BiblioFetch.openalex_lookup("doi:10.1/closed"; base_url=base * "works/")
         @test pdf === nothing
         @test meta["title"] == ["Closed-Access Work"]
         @test meta["author"][1]["family"] == "Cat"

@@ -430,9 +430,7 @@ function fetch_paper!(
                 if !isempty(authors_oa)
                     md["authors"] = [
                         strip(
-                            string(get(a, "given", "")) *
-                            " " *
-                            string(get(a, "family", "")),
+                            string(get(a, "given", "")) * " " * string(get(a, "family", ""))
                         ) for a in authors_oa
                     ]
                 end
