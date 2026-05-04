@@ -27,6 +27,7 @@ include("sources/springer_oa.jl")        # Springer Nature OpenAccess (key-gated
 include("sources/openalex.jl")           # OpenAlex (Crossref + Unpaywall + MAG superset)
 include("sources/doaj.jl")               # DOAJ (Directory of Open Access Journals)
 include("core/store.jl")
+include("core/lock.jl")          # pidfile lock — must precede fetch.jl + job.jl
 include("core/generate.jl")      # project-skeleton generator (template/ source)
 include("core/fetch.jl")
 include("core/dedup.jl")          # depends on store + sha256 from fetch
@@ -47,6 +48,7 @@ include("precompile_workload.jl") # PrecompileTools warm-up
 
 export detect_environment, load_config, effective_runtime
 export Store, open_store, list_entries, entry_info
+export StoreLock, with_store_lock
 export pdf_path, preprint_pdf_path, has_preprint
 export normalize_key, is_doi, is_arxiv, is_arxiv_versions, parse_arxiv_version_spec
 export arxiv_latest_version, arxiv_list_versions
