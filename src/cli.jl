@@ -702,7 +702,9 @@ function _cmd_info(args)
         md = read_metadata(store, key)
         if isempty(md)
             if json
-                push!(json_entries, Dict{String,Any}("key" => String(key), "found" => false))
+                push!(
+                    json_entries, Dict{String,Any}("key" => String(key), "found" => false)
+                )
             else
                 println(stderr, "  (not found) $key")
             end
