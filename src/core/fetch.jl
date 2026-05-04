@@ -59,7 +59,7 @@ const DEFAULT_SOURCES = (:unpaywall, :arxiv, :direct)
 # Like `:s2` it's opt-in; users who have institutional APS access turn it on
 # in their job's `[fetch].sources`.
 const KNOWN_SOURCES = (
-    :unpaywall, :arxiv, :direct, :s2, :aps, :elsevier, :springer, :openalex
+    :unpaywall, :arxiv, :direct, :s2, :aps, :elsevier, :springer, :openalex, :doaj
 )
 
 # Source classification used by `source_policy`:
@@ -74,7 +74,9 @@ const KNOWN_SOURCES = (
 #
 #   * PREPRINT_SOURCES = routes that deliver preprints / aggregated copies.
 #     Never produces a "strict" success; excluded outright in strict mode.
-const PUBLISHER_SOURCES = (:unpaywall, :aps, :elsevier, :springer, :openalex, :direct)
+const PUBLISHER_SOURCES = (
+    :unpaywall, :aps, :elsevier, :springer, :openalex, :doaj, :direct
+)
 const PREPRINT_SOURCES = (:arxiv, :s2)
 
 # source_policy: which sources count as a "true-source" fetch.
@@ -528,6 +530,41 @@ function fetch_paper!(
                 (md["abstract"] = String(oa_meta["abstract"]))
         end
         pdf === nothing || push!(candidates, (:openalex, pdf))
+    end
+
+    # 1d) DOAJ — vetted gold-OA journal index. Surfaces journal-hosted PDFs
+    # for smaller / non-English / regional titles Unpaywall doesn't index.
+    # Opt-in via `[fetch].sources`.
+    if want(:doaj) && doi !== nothing
+        verbose && @info "→ DOAJ lookup" doi
+        pdf, doaj_meta = doaj_lookup(doi; proxy=rt.proxy)
+        if !isempty(doaj_meta)
+            isempty(get(md, "title", "")) &&
+                !isempty(get(doaj_meta, "title", String[])) &&
+                (md["title"] = String(doaj_meta["title"][1]))
+            isempty(String(get(md, "journal", ""))) &&
+                !isempty(get(doaj_meta, "container-title", String[])) &&
+                (md["journal"] = String(doaj_meta["container-title"][1]))
+            if get(md, "year", nothing) in (nothing, "")
+                dp = get(get(doaj_meta, "issued", Dict()), "date-parts", [[nothing]])
+                if length(dp) >= 1 && length(dp[1]) >= 1 && dp[1][1] !== nothing
+                    md["year"] = dp[1][1]
+                end
+            end
+            if isempty(get(md, "authors", String[]))
+                doaj_authors = get(doaj_meta, "author", Dict{String,Any}[])
+                if !isempty(doaj_authors)
+                    md["authors"] = [
+                        string(get(a, "given", "")) * " " * string(get(a, "family", "")) for
+                        a in doaj_authors
+                    ]
+                end
+            end
+            isempty(String(get(md, "abstract", ""))) &&
+                haskey(doaj_meta, "abstract") &&
+                (md["abstract"] = String(doaj_meta["abstract"]))
+        end
+        pdf === nothing || push!(candidates, (:doaj, pdf))
     end
 
     # 2) arXiv

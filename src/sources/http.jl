@@ -17,6 +17,7 @@ const APS_TDM_URL = "https://harvest.aps.org/v2/journals/articles/"
 const ELSEVIER_TDM_URL = "https://api.elsevier.com/content/article/doi/"
 const SPRINGER_OA_URL = "https://api.springernature.com/openaccess/json"
 const OPENALEX_URL = "https://api.openalex.org/works/"
+const DOAJ_URL = "https://doaj.org/api/search/articles/"
 
 # Retry defaults. Overridable per-call on every lookup function.
 const DEFAULT_RETRY_STATUSES = (429, 502, 503, 504)

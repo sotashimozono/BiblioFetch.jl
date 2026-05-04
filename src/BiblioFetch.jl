@@ -25,6 +25,7 @@ include("sources/aps_tdm.jl")            # APS Harvest TDM (token-gated)
 include("sources/elsevier_tdm.jl")       # Elsevier ScienceDirect TDM (key-gated)
 include("sources/springer_oa.jl")        # Springer Nature OpenAccess (key-gated lookup)
 include("sources/openalex.jl")           # OpenAlex (Crossref + Unpaywall + MAG superset)
+include("sources/doaj.jl")               # DOAJ (Directory of Open Access Journals)
 include("core/store.jl")
 include("core/generate.jl")      # project-skeleton generator (template/ source)
 include("core/fetch.jl")
@@ -66,6 +67,7 @@ export aps_tdm_url, is_aps_doi
 export elsevier_tdm_url, is_elsevier_doi, elsevier_tdm_auth_headers
 export springer_oa_lookup, is_springer_doi
 export openalex_lookup
+export doaj_lookup
 export status, NetworkStatus, ProbeResult, is_reachable
 export VaultTopic, VaultIndex, load_vault_index, list_topics, topic_refs
 export vault_add_ref!, vault_fetch!, vault_bib, vault_search
