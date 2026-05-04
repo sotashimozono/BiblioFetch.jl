@@ -74,7 +74,9 @@ const KNOWN_SOURCES = (
 #
 #   * PREPRINT_SOURCES = routes that deliver preprints / aggregated copies.
 #     Never produces a "strict" success; excluded outright in strict mode.
-const PUBLISHER_SOURCES = (:unpaywall, :aps, :elsevier, :springer, :openalex, :doaj, :direct)
+const PUBLISHER_SOURCES = (
+    :unpaywall, :aps, :elsevier, :springer, :openalex, :doaj, :direct
+)
 const PREPRINT_SOURCES = (:arxiv, :s2)
 
 # source_policy: which sources count as a "true-source" fetch.
