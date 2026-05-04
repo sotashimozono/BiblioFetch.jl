@@ -60,12 +60,15 @@ end
         legacy_slug = BiblioFetch._legacy_safe_key(key)
         legacy_path = joinpath(root, BiblioFetch.METADATA_DIRNAME, legacy_slug * ".toml")
         open(legacy_path, "w") do io
-            write(io, """
-            key = "10.1234/foo_bar"
-            status = "ok"
-            group = ""
-            title = "legacy entry"
-            """)
+            write(
+                io,
+                """
+      key = "10.1234/foo_bar"
+      status = "ok"
+      group = ""
+      title = "legacy entry"
+      """,
+            )
         end
 
         @test BiblioFetch.has_metadata(store, key)
@@ -115,9 +118,7 @@ end
             write(io, bytes)
         end
         BiblioFetch.write_metadata!(
-            store,
-            key,
-            Dict("key" => key, "status" => "ok", "group" => "", "pdf_path" => p),
+            store, key, Dict("key" => key, "status" => "ok", "group" => "", "pdf_path" => p)
         )
 
         collected = BiblioFetch._collect_pdf_paths(root)
