@@ -3,7 +3,9 @@ BiblioFetch — bulk literature fetcher (DOI / arXiv → local PDF store)
 
 Common usage:
   bibliofetch                             Run job.toml in the current directory
-  bibliofetch run <job.toml>              Execute a job TOML (groups, parallel, log)
+  bibliofetch run <job.toml> [--verbose-sources]
+                                          Execute a job TOML (groups, parallel, log)
+                                          (--verbose-sources surfaces per-source @debug logs)
   bibliofetch add <ref> [<ref> …]         Queue refs into the global store
   bibliofetch add -f <file>               Queue from a file (one ref per line; '#' comments ok)
   bibliofetch sync [--force] [--quiet]    Fetch pending/failed entries
@@ -24,7 +26,10 @@ Advanced:
   bibliofetch env                         Show detected runtime (hostname, proxy, mode)
   bibliofetch status [--timeout <s>]      Probe supported APIs
   bibliofetch init <path> [--force]       Create a new BiblioFetch project skeleton
-  bibliofetch fetch <ref> [--force]       Fetch one reference immediately
+  bibliofetch fetch <ref> [--force] [--verbose-sources]
+                                          Fetch one reference immediately
+                                          (--verbose-sources sets JULIA_DEBUG=BiblioFetch
+                                           so per-source @debug logs are surfaced)
   bibliofetch stats [<dir>]               Summary: counts by status/source/group + PDF size
   bibliofetch import <refs.bib>           Queue DOIs / arXiv ids from an existing .bib file
   bibliofetch dedup [<dir>] [--apply]     Report (or apply) PDF-hash duplicates
@@ -125,6 +130,9 @@ end
 function _cmd_fetch(args)
     isempty(args) && (println(stderr, "fetch: need a reference"); return 2)
     force = "--force" in args
+    if "--verbose-sources" in args
+        ENV["JULIA_DEBUG"] = string(get(ENV, "JULIA_DEBUG", ""), ",BiblioFetch")
+    end
     refs = filter(a -> !startswith(a, "--"), args)
     rt = detect_environment()
     store = open_store(rt.store_root)
@@ -945,6 +953,9 @@ function _cmd_run(args)
     isempty(args) && (println(stderr, "run: need a job TOML path"); return 2)
     path = args[1]
     quiet = ("--quiet" in args) || ("-q" in args)
+    if "--verbose-sources" in args
+        ENV["JULIA_DEBUG"] = string(get(ENV, "JULIA_DEBUG", ""), ",BiblioFetch")
+    end
     rt = detect_environment()
     !quiet && (show(stdout, MIME("text/plain"), rt); println(); println())
     job = load_job(path; runtime=rt)
