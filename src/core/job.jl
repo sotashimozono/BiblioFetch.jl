@@ -451,7 +451,11 @@ function _expand_arxiv_version_specs(refs, rt, logio, verbose)
             continue
         end
         # `base_key` is `arxiv:<id>`; strip the prefix for API / URL building.
-        id = startswith(base_key, "arxiv:") ? String(chopprefix(base_key, "arxiv:")) : base_key
+        id = if startswith(base_key, "arxiv:")
+            String(chopprefix(base_key, "arxiv:"))
+        else
+            base_key
+        end
         versions = if spec === :all
             verbose && @info "→ arXiv version discovery" id
             vs = arxiv_list_versions(id; proxy=rt.proxy)

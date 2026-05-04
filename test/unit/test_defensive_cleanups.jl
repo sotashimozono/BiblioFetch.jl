@@ -9,11 +9,9 @@ using Test
     @test BiblioFetch.normalize_key("arxiv:1706.03762") == "arxiv:1706.03762"
     @test BiblioFetch.normalize_key("ArXiv:1706.03762v2") == "arxiv:1706.03762v2"
     # Legacy slash form preserved
-    @test BiblioFetch.normalize_key("arxiv:cond-mat/0608208") ==
-        "arxiv:cond-mat/0608208"
+    @test BiblioFetch.normalize_key("arxiv:cond-mat/0608208") == "arxiv:cond-mat/0608208"
     # Version-spec pseudo-ref (separate code path through chopprefix)
-    @test BiblioFetch.normalize_key("ARXIV:1706.03762@all") ==
-        "arxiv:1706.03762@all"
+    @test BiblioFetch.normalize_key("ARXIV:1706.03762@all") == "arxiv:1706.03762@all"
 end
 
 @testset "M2: extra URL prefixes in normalize_key" begin
@@ -27,10 +25,8 @@ end
         @test BiblioFetch.normalize_key(src) == "10.1234/abc"
     end
     # New arXiv URL prefixes
-    @test BiblioFetch.normalize_key("arxiv.org/abs/1706.03762") ==
-        "arxiv:1706.03762"
-    @test BiblioFetch.normalize_key("http://arxiv.org/pdf/1706.03762") ==
-        "arxiv:1706.03762"
+    @test BiblioFetch.normalize_key("arxiv.org/abs/1706.03762") == "arxiv:1706.03762"
+    @test BiblioFetch.normalize_key("http://arxiv.org/pdf/1706.03762") == "arxiv:1706.03762"
     # Existing prefixes still work (regression)
     @test BiblioFetch.normalize_key("https://arxiv.org/abs/1706.03762") ==
         "arxiv:1706.03762"
