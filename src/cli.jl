@@ -43,6 +43,11 @@ Reference forms:
   arXiv        arxiv:1905.07639   or   1905.07639
   URL          https://doi.org/10.1103/...     https://arxiv.org/abs/1905.07639
 
+Output:
+  --json / -j                     Emit machine-readable JSON instead of
+                                  human-readable text (fetch / info / run /
+                                  sync / ls / stats).
+
 Environment overrides config file:
   HTTPS_PROXY / HTTP_PROXY       explicit proxy
   BIBLIOFETCH_CONFIG             path to config.toml (default ~/.config/bibliofetch/config.toml)
@@ -52,6 +57,65 @@ Getting started:
   Config template ships at `config/config.toml` in this package. Copy it to
   ~/.config/bibliofetch/config.toml and edit. Runnable demo jobs in `examples/`.
 """
+
+_has_json_flag(args) = "--json" in args || "-j" in args
+
+# Strip JSON flag from args before downstream parsing so existing arg-walking
+# loops don't barf on an unknown flag they don't recognise.
+_strip_flags(args, flags) = filter(a -> !(a in flags), args)
+
+const _JSON_FLAGS = ("--json", "-j")
+
+# JSON-friendly conversion: walks dicts / vectors, converts Symbols to String,
+# Dates.AbstractTime to ISO string, and `nothing` to `nothing` (which JSON3
+# encodes as `null`). Mirrors the shape `_stringify` uses for TOML, but keeps
+# Booleans / numbers / `nothing` intact instead of stringifying.
+function _jsonify(x)
+    if x isa AbstractDict
+        return Dict{String,Any}(String(k) => _jsonify(v) for (k, v) in x)
+    elseif x isa AbstractVector
+        return Any[_jsonify(v) for v in x]
+    elseif x isa AbstractString
+        return String(x)
+    elseif x isa Symbol
+        return String(x)
+    elseif x isa Dates.AbstractTime
+        return string(x)
+    elseif x isa Bool || x isa Number
+        return x
+    elseif x === nothing
+        return nothing
+    else
+        return string(x)
+    end
+end
+
+# AttemptLog has user-defined fields; route through _jsonify by extracting
+# fieldnames, keeping numeric / boolean types intact.
+function _jsonify(a::AttemptLog)
+    return Dict{String,Any}(
+        String(f) => _jsonify(getfield(a, f)) for f in fieldnames(AttemptLog)
+    )
+end
+
+# FetchResult → Dict for JSON emission.
+function _fetch_result_to_dict(res::FetchResult)
+    return Dict{String,Any}(
+        "key" => res.key,
+        "ok" => res.ok,
+        "source" => String(res.source),
+        "pdf_path" => res.pdf_path,
+        "error" => res.error,
+        "attempts" => [_jsonify(a) for a in res.attempts],
+    )
+end
+
+# StoreStats → Dict via fieldnames so future fields get picked up automatically.
+function _stats_to_dict(st::StoreStats)
+    return Dict{String,Any}(
+        String(f) => _jsonify(getfield(st, f)) for f in fieldnames(StoreStats)
+    )
+end
 
 function _read_refs_file(path::AbstractString)
     lines = String[]
@@ -113,17 +177,23 @@ function _cmd_add(args)
 end
 
 function _cmd_sync(args)
+    json = _has_json_flag(args)
     force = "--force" in args
-    quiet = ("--quiet" in args) || ("-q" in args)
+    quiet = ("--quiet" in args) || ("-q" in args) || json
     rt = detect_environment()
     store = open_store(rt.store_root)
     !quiet && (show(stdout, MIME("text/plain"), rt); println(); println())
     results = sync!(store; rt=rt, force=force, verbose=(!quiet))
     n_ok = count(r -> r.ok, results)
-    println("\nsync: $(n_ok)/$(length(results)) succeeded")
-    for r in results
-        if !r.ok
-            println(stderr, "  ✗ $(r.key) — $(r.error)")
+    if json
+        JSON3.write(stdout, [_fetch_result_to_dict(r) for r in results])
+        println()
+    else
+        println("\nsync: $(n_ok)/$(length(results)) succeeded")
+        for r in results
+            if !r.ok
+                println(stderr, "  ✗ $(r.key) — $(r.error)")
+            end
         end
     end
     return n_ok == length(results) ? 0 : 1
@@ -131,32 +201,49 @@ end
 
 function _cmd_fetch(args)
     isempty(args) && (println(stderr, "fetch: need a reference"); return 2)
+    json = _has_json_flag(args)
     force = "--force" in args
     if "--verbose-sources" in args
         ENV["JULIA_DEBUG"] = string(get(ENV, "JULIA_DEBUG", ""), ",BiblioFetch")
     end
-    refs = filter(a -> !startswith(a, "--"), args)
+    refs = filter(a -> !startswith(a, "-"), args)
     rt = detect_environment()
     store = open_store(rt.store_root)
-    show(stdout, MIME("text/plain"), rt);
-    println();
-    println()
+    if !json
+        show(stdout, MIME("text/plain"), rt)
+        println()
+        println()
+    end
     rc = 0
+    results = FetchResult[]
     for r in refs
         key = queue_reference!(store, r)
         res = fetch_paper!(store, key; rt=rt, force=force)
-        if res.ok
-            println("✓ $(res.key)  [$(res.source)]  → $(res.pdf_path)")
-        else
-            println(stderr, "✗ $(res.key) — $(res.error)")
-            rc = 1
+        push!(results, res)
+        if !json
+            if res.ok
+                println("✓ $(res.key)  [$(res.source)]  → $(res.pdf_path)")
+            else
+                println(stderr, "✗ $(res.key) — $(res.error)")
+            end
         end
+        res.ok || (rc = 1)
+    end
+    if json
+        payload = if length(results) == 1
+            _fetch_result_to_dict(results[1])
+        else
+            [_fetch_result_to_dict(r) for r in results]
+        end
+        JSON3.write(stdout, payload)
+        println()
     end
     return rc
 end
 
 function _cmd_list(args)
     # default: show all entries (unlike old behavior which showed only pending/failed)
+    json = _has_json_flag(args)
     only_pending = "--pending" in args
     tag_filter = ""
     only_unread = "--unread" in args
@@ -172,6 +259,7 @@ function _cmd_list(args)
     end
     rt = detect_environment(; probe=false)
     store = open_store(rt.store_root)
+    json_rows = Vector{Dict{String,Any}}()
     for safekey in list_entries(store)
         p = joinpath(store.root, METADATA_DIRNAME, safekey * ".toml")
         md = TOML.parsefile(p)
@@ -195,6 +283,26 @@ function _cmd_list(args)
         end
         key = get(md, "key", safekey)
         title = get(md, "title", "")
+        if json
+            push!(
+                json_rows,
+                Dict{String,Any}(
+                    "key" => String(key),
+                    "title" => String(title),
+                    "status" => String(status),
+                    "source" => String(get(md, "source", "")),
+                    "group" => String(get(md, "group", "")),
+                    "pdf_path" => String(get(md, "pdf_path", "")),
+                    "year" => _jsonify(get(md, "year", nothing)),
+                    "starred" => Bool(get(md, "starred", false)),
+                    "read_status" => String(get(md, "read_status", "unread")),
+                    "tags" => let t = get(md, "tags", String[])
+                        t isa AbstractVector ? String.(t) : String[]
+                    end,
+                ),
+            )
+            continue
+        end
         title_short = length(title) > 60 ? title[1:57] * "…" : title
         starred_mark = Bool(get(md, "starred", false)) ? "★" : " "
         tags_str = let t = get(md, "tags", String[])
@@ -207,6 +315,10 @@ function _cmd_list(args)
         @printf(
             "  %s [%-7s] %-45s  %s%s\n", starred_mark, status, key, title_short, tags_str
         )
+    end
+    if json
+        JSON3.write(stdout, json_rows)
+        println()
     end
     return 0
 end
@@ -507,15 +619,21 @@ function _cmd_graph(args)
 end
 
 function _cmd_stats(args)
+    json = _has_json_flag(args)
     rt = detect_environment(; probe=false)
     dir = nothing
     for a in args
-        startswith(a, "--") || (dir = a)
+        startswith(a, "-") || (dir = a)
     end
     store = open_store(dir === nothing ? rt.store_root : dir)
     st = stats(store)
-    show(stdout, MIME("text/plain"), st)
-    println()
+    if json
+        JSON3.write(stdout, _stats_to_dict(st))
+        println()
+    else
+        show(stdout, MIME("text/plain"), st)
+        println()
+    end
     return 0
 end
 
@@ -569,10 +687,12 @@ end
 
 function _cmd_info(args)
     isempty(args) && (println(stderr, "info: need a reference"); return 2)
+    json = _has_json_flag(args)
     raw = "--raw" in args
-    refs = filter(a -> !startswith(a, "--"), args)
+    refs = filter(a -> !startswith(a, "-"), args)
     rt = detect_environment(; probe=false)
     store = open_store(rt.store_root)
+    json_entries = Vector{Dict{String,Any}}()
     for r in refs
         key = try
             normalize_key(r)
@@ -581,7 +701,19 @@ function _cmd_info(args)
         end
         md = read_metadata(store, key)
         if isempty(md)
-            println(stderr, "  (not found) $key")
+            if json
+                push!(json_entries, Dict{String,Any}("key" => String(key), "found" => false))
+            else
+                println(stderr, "  (not found) $key")
+            end
+            continue
+        end
+        if json
+            d = _jsonify(md)
+            d isa AbstractDict || (d = Dict{String,Any}("value" => d))
+            d["found"] = true
+            haskey(d, "key") || (d["key"] = String(key))
+            push!(json_entries, d)
             continue
         end
         if raw
@@ -592,6 +724,11 @@ function _cmd_info(args)
             print(_format_info_entry(md))
             println()
         end
+    end
+    if json
+        payload = length(json_entries) == 1 ? json_entries[1] : json_entries
+        JSON3.write(stdout, payload)
+        println()
     end
     return 0
 end
@@ -978,8 +1115,9 @@ end
 
 function _cmd_run(args)
     isempty(args) && (println(stderr, "run: need a job TOML path"); return 2)
-    path = args[1]
-    quiet = ("--quiet" in args) || ("-q" in args)
+    json = _has_json_flag(args)
+    path = first(filter(a -> !startswith(a, "-"), args))
+    quiet = ("--quiet" in args) || ("-q" in args) || json
     if "--verbose-sources" in args
         ENV["JULIA_DEBUG"] = string(get(ENV, "JULIA_DEBUG", ""), ",BiblioFetch")
     end
@@ -988,8 +1126,33 @@ function _cmd_run(args)
     job = load_job(path; runtime=rt)
     job = expand_vault_inherit(job)
     result = BiblioFetch.run(job; verbose=(!quiet), runtime=rt)
-    show(stdout, MIME("text/plain"), result)
-    println()
+    if json
+        payload = Dict{String,Any}(
+            "name" => result.job.name,
+            "target" => result.job.target,
+            "elapsed_s" => result.elapsed,
+            "entries" => [
+                Dict{String,Any}(
+                    "key" => e.key,
+                    "group" => e.group,
+                    "status" => String(e.status),
+                    "source" => String(e.source),
+                    "pdf_path" => e.pdf_path,
+                    "depth" => e.depth,
+                    "referenced_by" => e.referenced_by,
+                ) for e in result.entries
+            ],
+            "duplicates" => [
+                Dict{String,Any}("key" => d[1], "kept" => d[2], "rejected" => d[3]) for
+                d in result.job.duplicates
+            ],
+        )
+        JSON3.write(stdout, payload)
+        println()
+    else
+        show(stdout, MIME("text/plain"), result)
+        println()
+    end
     n_ok = count(e -> e.status === :ok, result.entries)
     return n_ok == length(result.entries) ? 0 : 1
 end
