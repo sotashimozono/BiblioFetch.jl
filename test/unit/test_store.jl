@@ -70,3 +70,15 @@ end
         @test !BiblioFetch._looks_like_pdf(short_path)
     end
 end
+
+@testset "_normalize_group rejects absolute paths (#53)" begin
+    # On Windows, drive-letter and UNC paths must be rejected so joinpath can't
+    # discard store.root. Leading-`/` inputs like `/cond-mat/...` continue to be
+    # tolerated (stripped) for backwards compatibility with existing callers.
+    if Sys.iswindows()
+        @test_throws ArgumentError BiblioFetch._normalize_group("C:\\Windows\\Temp")
+        @test_throws ArgumentError BiblioFetch._normalize_group("C:/Windows/Temp")
+    end
+    @test BiblioFetch._normalize_group("foo/bar") == "foo/bar"
+    @test_throws ArgumentError BiblioFetch._normalize_group("foo/../bar")
+end
