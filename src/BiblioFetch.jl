@@ -10,6 +10,7 @@ using PrecompileTools
 using Printf
 using SHA
 using TOML
+using Unicode
 using URIs
 
 include("core/env.jl")

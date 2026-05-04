@@ -23,7 +23,7 @@ const _S2_FIELDS = "title,authors,year,abstract,openAccessPdf,journal,externalId
 # S2 accepts: DOI:10.xxx / ARXIV:1234.5678 / MAG:... / ACL:... / URL:...
 function _s2_key(normalized::AbstractString)
     if startswith(normalized, "arxiv:")
-        return "ARXIV:" * normalized[7:end]
+        return "ARXIV:" * chopprefix(normalized, "arxiv:")
     elseif is_doi(normalized)
         return "DOI:" * normalized
     else

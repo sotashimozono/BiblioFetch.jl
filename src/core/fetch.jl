@@ -364,7 +364,7 @@ function fetch_paper!(
     end
 
     doi = is_doi(key) ? key : nothing
-    arxiv = startswith(key, "arxiv:") ? key[7:end] : nothing
+    arxiv = startswith(key, "arxiv:") ? String(chopprefix(key, "arxiv:")) : nothing
 
     meta = doi === nothing ? Dict{String,Any}() : crossref_lookup(doi; proxy=rt.proxy)
     # DataCite fallback: Crossref doesn't know dataset DOIs (Zenodo, Figshare,
@@ -678,7 +678,7 @@ function _maybe_fetch_preprint_companion!(
         if !isempty(ax)
             ax
         elseif startswith(key, "arxiv:")
-            key[7:end]
+            String(chopprefix(key, "arxiv:"))
         elseif !isempty(get(md, "title", ""))
             verbose && @info "→ preprint: arXiv title search" title=md["title"]
             found = arxiv_search_by_title(

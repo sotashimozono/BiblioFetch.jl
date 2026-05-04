@@ -92,11 +92,16 @@ function normalize_key(s::AbstractString)
     for pre in (
         "https://doi.org/",
         "http://doi.org/",
+        "https://www.doi.org/",
+        "https://dx.doi.org/",
+        "http://dx.doi.org/",
         "doi:",
         "DOI:",
         "https://arxiv.org/abs/",
         "http://arxiv.org/abs/",
         "https://arxiv.org/pdf/",
+        "http://arxiv.org/pdf/",
+        "arxiv.org/abs/",
     )
         if startswith(t, pre)
             t = t[(length(pre) + 1):end]
@@ -111,10 +116,10 @@ function normalize_key(s::AbstractString)
         at = findlast('@', t)
         head = String(t[1:(at - 1)])
         tail = lowercase(String(t[(at + 1):end]))
-        id = startswith(lowercase(head), "arxiv:") ? head[7:end] : head
+        id = startswith(lowercase(head), "arxiv:") ? chopprefix(head, r"(?i)arxiv:") : head
         return "arxiv:" * lowercase(id) * "@" * tail
     elseif is_arxiv(t)
-        id = startswith(lowercase(t), "arxiv:") ? t[7:end] : t
+        id = startswith(lowercase(t), "arxiv:") ? chopprefix(t, r"(?i)arxiv:") : t
         return "arxiv:" * lowercase(id)
     elseif is_doi(t)
         return lowercase(t)

@@ -21,11 +21,16 @@ function _bibtex_escape(s::AbstractString)
 end
 
 # last-whitespace-token of an author string, ASCII-sanitized.
-# "Hans-Peter Müller" -> "Mller"  (strips non-ASCII-letters)
+# "Hans-Peter Müller" -> "Muller"  (NFKD-decomposes diacritics, then strips
+# combining marks and any remaining non-ASCII characters)
 function _surname_ascii(name::AbstractString)
     parts = split(strip(String(name)))
     isempty(parts) && return ""
-    return replace(String(last(parts)), r"[^A-Za-z0-9]" => "")
+    s = String(last(parts))
+    # Decompose then strip combining marks (NFKD) — turns "Müller" into "Muller"
+    # rather than "Mller", "Hörmander" into "Hormander", etc.
+    decomposed = Unicode.normalize(s; stripmark=true)
+    return replace(decomposed, r"[^A-Za-z0-9]" => "")
 end
 
 """
@@ -99,7 +104,7 @@ function bibtex_entry(md::AbstractDict; key::AbstractString=_bibtex_key(md))
 
     arxiv_id = String(get(md, "arxiv_id", ""))
     if isempty(arxiv_id) && startswith(raw_key, "arxiv:")
-        arxiv_id = raw_key[7:end]
+        arxiv_id = String(chopprefix(raw_key, "arxiv:"))
     end
     if !isempty(arxiv_id)
         println(io, "  eprint  = {", arxiv_id, "},")

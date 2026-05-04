@@ -21,8 +21,9 @@ end
     @test BiblioFetch._bibtex_key(md) == "Smith2019"
 
     # Last-word of name = surname (handles Western convention)
+    # NFKD-decomposed: "Müller" → "Muller" (not "Mller")
     md2 = Dict{String,Any}("authors" => ["Hans-Peter Müller"], "year" => 2021)
-    @test BiblioFetch._bibtex_key(md2) == "Mller2021"  # ASCII-only sanitization
+    @test BiblioFetch._bibtex_key(md2) == "Muller2021"
 
     # No authors → fall back to sanitized key
     md3 = Dict{String,Any}("year" => 2020, "key" => "arxiv:1706.03762")
