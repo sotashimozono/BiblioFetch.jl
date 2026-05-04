@@ -301,14 +301,22 @@ already-loaded `FetchJob`. Writes PDFs into `job.target/<group>/`, metadata
 into `job.target/.metadata/`, and a run log into `job.log_file`.
 """
 function run(
-    path::AbstractString; verbose::Bool=true, runtime::Union{Runtime,Nothing}=nothing
+    path::AbstractString;
+    verbose::Bool=true,
+    runtime::Union{Runtime,Nothing}=nothing,
+    force_lock::Bool=false,
 )
     rt = runtime === nothing ? detect_environment() : runtime
     job = load_job(path; runtime=rt)
-    return run(job; verbose=verbose, runtime=rt)
+    return run(job; verbose=verbose, runtime=rt, force_lock=force_lock)
 end
 
-function run(job::FetchJob; verbose::Bool=true, runtime::Union{Runtime,Nothing}=nothing)
+function run(
+    job::FetchJob;
+    verbose::Bool=true,
+    runtime::Union{Runtime,Nothing}=nothing,
+    force_lock::Bool=false,
+)
     rt = runtime === nothing ? detect_environment() : runtime
 
     # per-job runtime: override email / proxy if job specifies them
@@ -326,6 +334,16 @@ function run(job::FetchJob; verbose::Bool=true, runtime::Union{Runtime,Nothing}=
 
     store = open_store(job.target)
 
+    return with_store_lock(store; force=force_lock) do
+        _run_locked(job, store, rt_job, verbose)
+    end
+end
+
+# Inner body of `run(::FetchJob; …)`. Split out so the store-lock wrapper above
+# stays a one-liner — see #52 for the corruption mode this guards against
+# (concurrent runs racing on the same metadata key, last-writer-wins TOML
+# truncation).
+function _run_locked(job::FetchJob, store::Store, rt_job::Runtime, verbose::Bool)
     mkpath(dirname(job.log_file))
     logio = open(job.log_file, "a")
     _logln(

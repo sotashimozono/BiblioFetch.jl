@@ -797,25 +797,31 @@ entry's stored `group`.
     fast-path is bypassed and the PDF is overwritten.
 """
 function sync!(
-    store::Store; rt::Runtime=detect_environment(), force::Bool=false, verbose::Bool=true
+    store::Store;
+    rt::Runtime=detect_environment(),
+    force::Bool=false,
+    verbose::Bool=true,
+    force_lock::Bool=false,
 )
-    results = FetchResult[]
-    for safekey in list_entries(store)
-        p = joinpath(store.root, METADATA_DIRNAME, safekey * ".toml")
-        md = TOML.parsefile(p)
-        key = get(md, "key", "")
-        isempty(key) && continue
-        status = get(md, "status", "pending")
-        group = String(get(md, "group", ""))
-        # Without --force, skip entries that are clearly already done.
-        if !force && status == "ok" && has_pdf(store, key; group=group)
-            continue
+    return with_store_lock(store; force=force_lock) do
+        results = FetchResult[]
+        for safekey in list_entries(store)
+            p = joinpath(store.root, METADATA_DIRNAME, safekey * ".toml")
+            md = TOML.parsefile(p)
+            key = get(md, "key", "")
+            isempty(key) && continue
+            status = get(md, "status", "pending")
+            group = String(get(md, "group", ""))
+            # Without --force, skip entries that are clearly already done.
+            if !force && status == "ok" && has_pdf(store, key; group=group)
+                continue
+            end
+            verbose && @info "syncing" key status group force
+            push!(
+                results,
+                fetch_paper!(store, key; rt=rt, group=group, force=force, verbose=verbose),
+            )
         end
-        verbose && @info "syncing" key status group force
-        push!(
-            results,
-            fetch_paper!(store, key; rt=rt, group=group, force=force, verbose=verbose),
-        )
+        return results
     end
-    return results
 end

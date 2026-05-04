@@ -179,11 +179,12 @@ end
 function _cmd_sync(args)
     json = _has_json_flag(args)
     force = "--force" in args
+    force_lock = "--force-lock" in args
     quiet = ("--quiet" in args) || ("-q" in args) || json
     rt = detect_environment()
     store = open_store(rt.store_root)
     !quiet && (show(stdout, MIME("text/plain"), rt); println(); println())
-    results = sync!(store; rt=rt, force=force, verbose=(!quiet))
+    results = sync!(store; rt=rt, force=force, verbose=(!quiet), force_lock=force_lock)
     n_ok = count(r -> r.ok, results)
     if json
         JSON3.write(stdout, [_fetch_result_to_dict(r) for r in results])
@@ -1123,11 +1124,12 @@ function _cmd_run(args)
     if "--verbose-sources" in args
         ENV["JULIA_DEBUG"] = string(get(ENV, "JULIA_DEBUG", ""), ",BiblioFetch")
     end
+    force_lock = "--force-lock" in args
     rt = detect_environment()
     !quiet && (show(stdout, MIME("text/plain"), rt); println(); println())
     job = load_job(path; runtime=rt)
     job = expand_vault_inherit(job)
-    result = BiblioFetch.run(job; verbose=(!quiet), runtime=rt)
+    result = BiblioFetch.run(job; verbose=(!quiet), runtime=rt, force_lock=force_lock)
     if json
         payload = Dict{String,Any}(
             "name" => result.job.name,
