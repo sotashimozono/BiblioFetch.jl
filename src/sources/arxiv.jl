@@ -111,7 +111,7 @@ function arxiv_metadata(
     base_delay::Real=DEFAULT_BASE_DELAY,
     sleep_fn=Base.sleep,
 )
-    raw = startswith(lowercase(String(id)), "arxiv:") ? id[7:end] : id
+    raw = startswith(lowercase(String(id)), "arxiv:") ? chopprefix(String(id), r"(?i)arxiv:") : id
     url = base_url * "?id_list=" * URIs.escapeuri(String(raw))
     resp, _ = _http_get_with_retry(
         url;
@@ -144,7 +144,7 @@ function arxiv_latest_version(
     base_delay::Real=DEFAULT_BASE_DELAY,
     sleep_fn=Base.sleep,
 )
-    raw = startswith(lowercase(String(id)), "arxiv:") ? id[7:end] : id
+    raw = startswith(lowercase(String(id)), "arxiv:") ? chopprefix(String(id), r"(?i)arxiv:") : id
     # Strip any trailing version so the API returns the latest.
     raw = replace(String(raw), r"v\d+$" => "")
     url = base_url * "?id_list=" * URIs.escapeuri(String(raw))

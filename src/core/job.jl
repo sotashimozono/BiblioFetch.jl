@@ -451,7 +451,7 @@ function _expand_arxiv_version_specs(refs, rt, logio, verbose)
             continue
         end
         # `base_key` is `arxiv:<id>`; strip the prefix for API / URL building.
-        id = startswith(base_key, "arxiv:") ? base_key[7:end] : base_key
+        id = startswith(base_key, "arxiv:") ? String(chopprefix(base_key, "arxiv:")) : base_key
         versions = if spec === :all
             verbose && @info "→ arXiv version discovery" id
             vs = arxiv_list_versions(id; proxy=rt.proxy)
@@ -499,15 +499,21 @@ function _run_sequential!(entries, store, rt, job, logio, verbose)
 end
 
 function _run_parallel!(entries, store, rt, job, logio, verbose)
-    # bounded concurrency via a counting semaphore; tasks are IO-bound.
-    sem = Base.Semaphore(job.parallel)
+    # bounded concurrency via a Channel-based token gate; tasks are IO-bound.
+    # We avoid `Base.Semaphore` because it lives in Base's internal API
+    # surface — `Channel` is documented public and gives the same semantics:
+    # `take!` blocks until a token is available, `put!` releases it.
+    gate = Channel{Nothing}(job.parallel)
+    for _ in 1:(job.parallel)
+        put!(gate, nothing)
+    end
     lock = ReentrantLock()
     @sync for e in entries
-        Base.acquire(sem)
+        token = take!(gate)
         @async try
             _run_one!(e, store, rt, job, logio, verbose; lock=lock)
         finally
-            Base.release(sem)
+            put!(gate, token)
         end
     end
 end
