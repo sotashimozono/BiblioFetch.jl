@@ -32,6 +32,7 @@ include("core/search.jl")         # depends on store + refs (_normalize_group)
 include("core/stats.jl")          # depends on store + METADATA_DIRNAME
 include("core/status.jl")         # depends on env (Runtime) + sources (USER_AGENT)
 include("io/bibtex.jl")
+include("io/csl.jl")              # CSL JSON export (Pandoc / Quarto / Zotero / Hugo)
 include("io/bibtex_import.jl")    # inverse direction: read existing .bib into store
 include("io/graph.jl")            # DOT + Mermaid citation-graph rendering
 include("core/job.jl")            # depends on fetch + store + bibtex
@@ -50,6 +51,7 @@ export fetch_paper!, sync!
 export generate
 export FetchEntry, FetchJob, FetchJobResult, AttemptLog, load_job
 export bibtex_entry, write_bibtex
+export csl_entry, write_csl
 export BibEntry, parse_bibtex, bibentry_to_ref, import_bib!
 export to_dot, to_mermaid
 export find_duplicates, resolve_duplicates!

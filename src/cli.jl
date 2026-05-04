@@ -9,6 +9,7 @@ Common usage:
   bibliofetch sync [--force] [--quiet]    Fetch pending/failed entries
   bibliofetch ls [--tag <t>] [--unread] [--starred]   List store entries (all by default)
   bibliofetch bib [<dir>] [--out <path>]  Export BibTeX (defaults to current store)
+  bibliofetch csl [<dir>] [--out <path>]  Export CSL JSON (Pandoc/Quarto/Zotero/Hugo)
   bibliofetch info <ref> [--raw]          Show stored metadata
   bibliofetch search <q> [--field f]…     Search title/authors/abstract/journal/key
   bibliofetch annotate <ref>              Edit tags/notes/read_status in \$EDITOR
@@ -791,6 +792,31 @@ function _cmd_bib(args)
     return 0
 end
 
+function _cmd_csl(args)
+    rt = detect_environment(; probe=false)
+    # dir is optional: defaults to store_root from config (mirrors _cmd_bib)
+    dir = nothing
+    out = nothing
+    i = 1
+    while i <= length(args)
+        if args[i] in ("--out", "-o")
+            i += 1
+            i <= length(args) || (println(stderr, "csl: --out needs a path"); return 2)
+            out = args[i]
+        elseif !startswith(args[i], "--")
+            dir = args[i]
+        end
+        i += 1
+    end
+    dir = dir === nothing ? rt.store_root : dir
+    isdir(expanduser(dir)) || (println(stderr, "csl: not a directory: $(dir)"); return 2)
+    out = out === nothing ? joinpath(expanduser(dir), "refs.json") : out
+    store = open_store(dir)
+    n = write_csl(store, out)
+    println("wrote $n entries → $(out)")
+    return 0
+end
+
 function _cmd_annotate(args)
     isempty(args) && (println(stderr, "annotate: need a reference"); return 2)
     ref = first(filter(a -> !startswith(a, "--"), args))
@@ -1004,6 +1030,8 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
             _cmd_run(rest)
         elseif cmd == "bib"
             _cmd_bib(rest)
+        elseif cmd == "csl"
+            _cmd_csl(rest)
         elseif cmd == "import"
             _cmd_import(rest)
         elseif cmd == "dedup"
