@@ -89,9 +89,15 @@ const KNOWN_ON_FAIL_POLICIES = (:pending, :skip, :error)
 # Compute a hex-encoded SHA-256 of a file's byte stream. Used to dedup PDFs
 # that arrive via multiple DOI aliases (arxiv preprint DOI vs journal DOI).
 function _sha256_file(path::AbstractString)
+    ctx = SHA.SHA2_256_CTX()
     open(path, "r") do io
-        return bytes2hex(SHA.sha256(io))
+        buf = Vector{UInt8}(undef, 64 * 1024)
+        while !eof(io)
+            n = readbytes!(io, buf)
+            SHA.update!(ctx, view(buf, 1:n))
+        end
     end
+    return bytes2hex(SHA.digest!(ctx))
 end
 
 # ---- PDF download helpers ----
