@@ -40,6 +40,7 @@ Reference forms:
 Environment overrides config file:
   HTTPS_PROXY / HTTP_PROXY       explicit proxy
   BIBLIOFETCH_CONFIG             path to config.toml (default ~/.config/bibliofetch/config.toml)
+  BIBLIOFETCH_DEBUG=1            print Julia backtrace on errors
 
 Getting started:
   Config template ships at `config/config.toml` in this package. Copy it to
@@ -1037,6 +1038,10 @@ function cli_main(args::AbstractVector{<:AbstractString}=ARGS)
         end
     catch e
         println(stderr, "bibliofetch: ", sprint(showerror, e))
+        if get(ENV, "BIBLIOFETCH_DEBUG", "") != ""
+            Base.show_backtrace(stderr, catch_backtrace())
+            println(stderr)
+        end
         return 1
     end
 end
@@ -1051,6 +1056,10 @@ function julia_main()::Cint
         return cli_main(ARGS)
     catch e
         println(stderr, "bibliofetch: fatal: ", sprint(showerror, e))
+        if get(ENV, "BIBLIOFETCH_DEBUG", "") != ""
+            Base.show_backtrace(stderr, catch_backtrace())
+            println(stderr)
+        end
         return 1
     end
 end
