@@ -125,9 +125,17 @@ function _source_extra_headers(source::Symbol)
     return Pair{String,String}[]
 end
 
-# HTTP.jl-based downloader. Returns a NamedTuple with enough info for AttemptLog.
-# Shares the retry helper with the metadata lookups so a 429 / 503 from a
-# publisher (or arXiv under load) is backed off instead of immediately failing.
+# HTTP.jl-based streaming PDF downloader. Returns a NamedTuple with enough
+# info for AttemptLog. Unlike the buffered `_http_get_with_retry` (which is
+# fine for small JSON / XML metadata bodies), this path uses `HTTP.open` so
+# the PDF is written directly to the temp file in fixed-size chunks. A
+# Springer book chapter or APS supplemental can be hundreds of MB; buffering
+# `resp.body` would hold the whole thing in RAM. Memory profile here is
+# bounded by the stream chunk size regardless of file size.
+#
+# Mirrors the retry / Retry-After / status semantics of `_http_get_with_retry`
+# rather than calling it — kept inline so the streaming write happens inside
+# the `HTTP.open` block while the connection is still live.
 function _http_download_pdf(
     url::AbstractString,
     dest::AbstractString;
@@ -146,68 +154,136 @@ function _http_download_pdf(
     ]
     append!(headers, extra_headers)
 
-    resp, err, trace = _http_get_with_retry(
-        url;
-        proxy=proxy,
-        request_kwargs=(;
-            headers=headers,
-            connect_timeout=timeout,
-            readtimeout=timeout * 2,
-            redirect=true,
-            redirect_limit=10,
-        ),
-        max_retries=max_retries,
-        base_delay=base_delay,
-        sleep_fn=sleep_fn,
-    )
-    rc = trace.retry_count
-    rs = trace.retried_statuses
-    if resp === nothing
-        return (
-            ok=false,
-            http_status=nothing,
-            error="http: $(err)",
-            retry_count=rc,
-            retried_statuses=rs,
-        )
-    end
-    status_code = Int(resp.status)
-    if !(200 <= status_code < 300)
-        return (
-            ok=false,
-            http_status=status_code,
-            error="http status $(status_code)",
-            retry_count=rc,
-            retried_statuses=rs,
-        )
-    end
-    try
-        open(tmp, "w") do io
-            write(io, resp.body)
+    retried_statuses = Int[]
+    last_err::Union{String,Nothing} = nothing
+
+    for attempt in 0:max_retries
+        status::Union{Int,Nothing} = nothing
+        retry_after::Union{Float64,Nothing} = nothing
+        try
+            # status_exception=false so non-2xx returns the response instead
+            # of throwing — we want to inspect the status and (for 429/5xx)
+            # back off before deciding to give up. retry=false because we
+            # implement backoff at this layer.
+            open_kwargs = (;
+                headers=headers,
+                connect_timeout=timeout,
+                readtimeout=timeout * 2,
+                redirect=true,
+                redirect_limit=10,
+                status_exception=false,
+                retry=false,
+            )
+            opener = if proxy === nothing
+                (f) -> HTTP.open(f, "GET", url; open_kwargs...)
+            else
+                (f) -> HTTP.open(f, "GET", url; proxy=proxy, open_kwargs...)
+            end
+
+            opener() do http
+                HTTP.startread(http)
+                status = Int(http.message.status)
+                if status in DEFAULT_RETRY_STATUSES
+                    retry_after = _parse_retry_after(http.message)
+                end
+                if 200 <= status < 300
+                    open(tmp, "w") do io
+                        while !eof(http)
+                            write(io, readavailable(http))
+                        end
+                    end
+                else
+                    # Drain the body so the connection can be released back
+                    # to the pool. We don't write it anywhere.
+                    while !eof(http)
+                        read(http, 8192)
+                    end
+                end
+            end
+        catch e
+            last_err = sprint(showerror, e)
+            isfile(tmp) && rm(tmp; force=true)
+            if attempt >= max_retries
+                return (
+                    ok=false,
+                    http_status=nothing,
+                    error="http: $(last_err)",
+                    retry_count=length(retried_statuses),
+                    retried_statuses=retried_statuses,
+                )
+            end
+            push!(retried_statuses, 0)   # 0 = exception / pre-server retry
+            sleep_fn(base_delay * 2.0^attempt)
+            continue
         end
-    catch e
-        isfile(tmp) && rm(tmp; force=true)
+
+        # Connection completed cleanly. Decide based on `status` what to do.
+        if status === nothing
+            # Shouldn't happen — HTTP.open's callback must have run, which
+            # sets `status` after startread. Treat as a transport failure.
+            isfile(tmp) && rm(tmp; force=true)
+            if attempt >= max_retries
+                return (
+                    ok=false,
+                    http_status=nothing,
+                    error="http: no status (transport-level)",
+                    retry_count=length(retried_statuses),
+                    retried_statuses=retried_statuses,
+                )
+            end
+            push!(retried_statuses, 0)
+            sleep_fn(base_delay * 2.0^attempt)
+            continue
+        end
+
+        if status in DEFAULT_RETRY_STATUSES && attempt < max_retries
+            isfile(tmp) && rm(tmp; force=true)
+            push!(retried_statuses, status)
+            delay = retry_after === nothing ? base_delay * 2.0^attempt : retry_after
+            sleep_fn(delay)
+            continue
+        end
+
+        if !(200 <= status < 300)
+            isfile(tmp) && rm(tmp; force=true)
+            return (
+                ok=false,
+                http_status=status,
+                error="http status $(status)",
+                retry_count=length(retried_statuses),
+                retried_statuses=retried_statuses,
+            )
+        end
+
+        if !_looks_like_pdf(tmp)
+            isfile(tmp) && rm(tmp; force=true)
+            return (
+                ok=false,
+                http_status=status,
+                error="not a PDF (got HTML/landing)",
+                retry_count=length(retried_statuses),
+                retried_statuses=retried_statuses,
+            )
+        end
+
+        mv(tmp, dest; force=true)
         return (
-            ok=false,
-            http_status=status_code,
-            error="write: " * sprint(showerror, e),
-            retry_count=rc,
-            retried_statuses=rs,
+            ok=true,
+            http_status=status,
+            error=nothing,
+            retry_count=length(retried_statuses),
+            retried_statuses=retried_statuses,
         )
     end
-    if !_looks_like_pdf(tmp)
-        rm(tmp; force=true)
-        return (
-            ok=false,
-            http_status=status_code,
-            error="not a PDF (got HTML/landing)",
-            retry_count=rc,
-            retried_statuses=rs,
-        )
-    end
-    mv(tmp, dest; force=true)
+
+    # Loop fell through without returning — every attempt was a retriable
+    # status that exhausted the budget. Surface the last status as an error.
     return (
-        ok=true, http_status=status_code, error=nothing, retry_count=rc, retried_statuses=rs
+        ok=false,
+        http_status=nothing,
+        error=last_err === nothing ? "http: retries exhausted" : "http: $(last_err)",
+        retry_count=length(retried_statuses),
+        retried_statuses=retried_statuses,
     )
 end
 
