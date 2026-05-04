@@ -38,6 +38,13 @@ list_entries
 entry_info
 ```
 
+## Store lock
+
+```@docs
+StoreLock
+with_store_lock
+```
+
 ## Project skeleton
 
 ```@docs
@@ -71,6 +78,13 @@ parse_bibtex
 bibentry_to_ref
 import_bib!
 BibEntry
+```
+
+## CSL JSON
+
+```@docs
+csl_entry
+write_csl
 ```
 
 ## Citation graph visualization
@@ -114,6 +128,8 @@ StoreStats
 ```@docs
 datacite_lookup
 s2_lookup
+openalex_lookup
+doaj_lookup
 ```
 
 ## Publisher TDM (authenticated)
