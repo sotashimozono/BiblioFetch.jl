@@ -4,8 +4,6 @@ using BiblioFetch, Test
 const dirs = ["unit"]
 
 const FIG_BASE = joinpath(pkgdir(BiblioFetch), "docs", "src", "assets")
-const PATHS = Dict()
-mkpath.(values(PATHS))
 
 @testset "tests" begin
     test_args = copy(ARGS)

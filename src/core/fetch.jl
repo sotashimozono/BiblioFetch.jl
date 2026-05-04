@@ -353,7 +353,13 @@ function fetch_paper!(
     if want(:unpaywall) && doi !== nothing && rt.email !== nothing
         verbose && @info "→ Unpaywall lookup" doi
         pdf, upmeta = unpaywall_lookup(doi; email=rt.email, proxy=rt.proxy)
-        !isempty(upmeta) && (md["is_oa"] = get(upmeta, "is_oa", false))
+        # Tri-state: only persist `is_oa` when Unpaywall actually returned a
+        # value. Omitting the key (vs writing `false`) lets downstream readers
+        # use `get(md, "is_oa", missing)` to distinguish "Unpaywall said
+        # closed-access" from "Unpaywall couldn't be reached".
+        if !isempty(upmeta) && haskey(upmeta, "is_oa")
+            md["is_oa"] = upmeta["is_oa"]
+        end
         if pdf !== nothing
             # Strict mode: Unpaywall's best_oa_location may be a repository
             # preprint (host_type = "repository"); keep the candidate only
@@ -517,7 +523,7 @@ function fetch_paper!(
         md["source"] = String(used_source)
         md["pdf_path"] = dest
         md["fetched_at"] = string(Dates.now())
-        md["error"] = ""
+        haskey(md, "error") && delete!(md, "error")
         md["attempts"] = _attempts_to_dict.(attempts)
         md["sha256"] = _sha256_file(dest)
         # Companion preprint fetch — only when the primary came from a
