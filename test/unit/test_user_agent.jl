@@ -13,6 +13,10 @@ using BiblioFetch, Test
         ua2 = BiblioFetch.user_agent()
         @test occursin("mailto:test@example.com", ua2)
     finally
-        prev === nothing ? delete!(ENV, "BIBLIOFETCH_CONTACT_EMAIL") : (ENV["BIBLIOFETCH_CONTACT_EMAIL"] = prev)
+        if prev === nothing
+            delete!(ENV, "BIBLIOFETCH_CONTACT_EMAIL")
+        else
+            (ENV["BIBLIOFETCH_CONTACT_EMAIL"] = prev)
+        end
     end
 end
