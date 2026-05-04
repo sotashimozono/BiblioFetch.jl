@@ -1,4 +1,9 @@
-const USER_AGENT = "BiblioFetch/0.1 (+https://github.com/; mailto:souta.shimozono@gmail.com)"
+function user_agent()
+    contact = let e = get(ENV, "BIBLIOFETCH_CONTACT_EMAIL", "")
+        isempty(e) ? "" : "; mailto:$e"
+    end
+    return "BiblioFetch/1.0.1 (+https://github.com/sotashimozono/BiblioFetch.jl$(contact))"
+end
 
 # Default base URLs for the external APIs. Each lookup function accepts a
 # `base_url` kwarg that overrides these — used by the mock-server tests to
@@ -62,7 +67,7 @@ function _http_get_with_retry(
 )
     kw = merge(
         (;
-            headers=["User-Agent" => USER_AGENT],
+            headers=["User-Agent" => user_agent()],
             connect_timeout=15,
             readtimeout=15,
             status_exception=false,

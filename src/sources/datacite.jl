@@ -96,7 +96,7 @@ function datacite_lookup(
         url;
         proxy=proxy,
         request_kwargs=(;
-            headers=["User-Agent" => USER_AGENT, "Accept" => "application/vnd.api+json"],
+            headers=["User-Agent" => user_agent(), "Accept" => "application/vnd.api+json"],
             connect_timeout=timeout,
             readtimeout=timeout,
         ),
