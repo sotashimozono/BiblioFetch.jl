@@ -13,8 +13,9 @@ struct StoreLock
     stale_after_s::Int
 end
 
-StoreLock(store::Store; stale_after_s::Integer=600) =
+function StoreLock(store::Store; stale_after_s::Integer=600)
     StoreLock(joinpath(store.root, METADATA_DIRNAME, "run.pid"), Int(stale_after_s))
+end
 
 function _read_lock(lock::StoreLock)
     isfile(lock.path) || return nothing
@@ -78,9 +79,7 @@ Run `fn()` while holding an exclusive [`StoreLock`](@ref) on `store`. Releases
 the lock on normal return or exception. Pass `force=true` to override an
 existing live lock (useful for known-dead processes).
 """
-function with_store_lock(
-    fn, store::Store; force::Bool=false, stale_after_s::Integer=600
-)
+function with_store_lock(fn, store::Store; force::Bool=false, stale_after_s::Integer=600)
     lock = StoreLock(store; stale_after_s=stale_after_s)
     acquire_store_lock!(lock; force=force)
     try
