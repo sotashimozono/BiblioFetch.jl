@@ -114,8 +114,8 @@ function _title_similarity(a::AbstractString, b::AbstractString)
 
     # Bigram path (preferred for multi-word titles).
     if length(ta) >= 2 && length(tb) >= 2
-        A = Set(collect(zip(ta[1:end-1], ta[2:end])))
-        B = Set(collect(zip(tb[1:end-1], tb[2:end])))
+        A = Set(collect(zip(ta[1:(end - 1)], ta[2:end])))
+        B = Set(collect(zip(tb[1:(end - 1)], tb[2:end])))
         union_sz = length(union(A, B))
         return union_sz == 0 ? 0.0 : length(intersect(A, B)) / union_sz
     end
@@ -284,8 +284,7 @@ function arxiv_search_by_title(
     sim = _title_similarity(title, parsed.title)
     if sim < similarity_threshold
         author_match =
-            !isempty(authors) &&
-            any(a -> _surname_overlaps(a, parsed.authors), authors)
+            !isempty(authors) && any(a -> _surname_overlaps(a, parsed.authors), authors)
         if !author_match
             @debug "arxiv_search_by_title: title similarity too low" wanted = title got =
                 parsed.title sim

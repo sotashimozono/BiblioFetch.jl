@@ -42,9 +42,7 @@ end
 end
 
 @testset "_title_similarity: case-insensitive (Quantum Hall effect)" begin
-    @test BiblioFetch._title_similarity(
-        "Quantum Hall effect", "QUANTUM HALL EFFECT"
-    ) == 1.0
+    @test BiblioFetch._title_similarity("Quantum Hall effect", "QUANTUM HALL EFFECT") == 1.0
 end
 
 @testset "_title_similarity: completely different titles → low score" begin
@@ -175,9 +173,7 @@ end
         # falls below 0.8. But the queried first author "Alice Authority"
         # matches a candidate author surname → rescue path returns the id.
         id = BiblioFetch.arxiv_search_by_title(
-            "Topological insulators review";
-            authors=["Alice Authority"],
-            base_url=base,
+            "Topological insulators review"; authors=["Alice Authority"], base_url=base
         )
         @test id == "2300.55555"
 
@@ -189,9 +185,7 @@ end
 
         # Author whose surname doesn't overlap → no rescue → nothing.
         id3 = BiblioFetch.arxiv_search_by_title(
-            "Topological insulators review";
-            authors=["Charlie Outsider"],
-            base_url=base,
+            "Topological insulators review"; authors=["Charlie Outsider"], base_url=base
         )
         @test id3 === nothing
     end
