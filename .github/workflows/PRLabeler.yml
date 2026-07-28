@@ -1,7 +1,21 @@
-# Thin caller. The implementation lives ONCE, in QAtlasHub/.github (public, callable from any
-# owner), so the next breakage is one commit there instead of one PR per repo — this file used
-# to be a hand-rolled `gh pr edit` script, which GitHub's Projects-classic sunset broke in
-# every repo at once on 2026-07-28.
+# Labels a PR from its title (conventional-commit prefix) and the Type-of-Change
+# checkboxes in the body.  Those labels drive release-drafter's version resolver
+# and the release-notes categories.
+#
+# SELF-CONTAINED ON PURPOSE.  This is a personal-account repository:
+# `sotashimozono/` has no `.github` repo, so there is no org-local reusable to
+# call.  Calling `QAtlasHub/.github` instead would make this repo's CI depend on
+# a different owner's release cadence — QAtlasHub, lab-sotashimozono and
+# sotashimozono are three separate boundaries for Actions access, org secrets
+# and runner groups.  Sixty duplicated lines is the cheaper side of that trade.
+#
+# THE LABELS ARE SET THROUGH THE REST API, NEVER THROUGH `gh pr edit`.  That
+# command reads the pull request over GraphQL, and GitHub answers the query with
+# the Projects-classic sunset notice (`repository.pullRequest.projectCards`);
+# `gh` reports it as an error and exits 1.  Every repo still carrying the old
+# hand-rolled `gh pr edit` labeler went red overnight on 2026-07-28 — on a
+# deprecation message with nothing to do with labelling.  `github-script` talks
+# to REST, which has no such field.
 name: PR Labeler
 on:
   pull_request:
@@ -9,7 +23,68 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  issues: write            # addLabels / createLabel are issue-scoped, even on a PR
+  issues: write          # addLabels / createLabel are issue-scoped, even on a PR
 jobs:
   label:
-    uses: QAtlasHub/.github/.github/workflows/labeler.yml@v1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        with:
+          script: |
+            const title = (process.env.TITLE || "").toLowerCase();
+            const body = process.env.BODY || "";
+            const labels = new Set();
+            if (/^feat/.test(title)) labels.add("enhancement");
+            if (/^fix/.test(title)) labels.add("bug");
+            if (/^perf/.test(title)) labels.add("performance");
+            if (/^docs/.test(title)) labels.add("documentation");
+            if (/^(chore|refactor|ci|build|test)/.test(title)) labels.add("chore");
+            if (/!:/.test(title) || /breaking/.test(title)) labels.add("breaking");
+            const checked = [...body.matchAll(/- \[[xX]\]\s.*?\(`([^`]+)`\)/g)].map(m => m[1]);
+            for (const l of checked) labels.add(l);
+
+            // Create any label this repo does not have yet, in the colours the hand-rolled
+            // per-repo labeler used, so the release-notes categories look the same after the
+            // migration. The old version did this with `gh label create --force` as a separate
+            // step; here it costs one call only when a label is actually missing.
+            const COLOURS = {
+              enhancement: "a2eeef", bug: "d73a4a", performance: "e4e669",
+              documentation: "0075ca", chore: "e8e8e8", breaking: "b60205",
+            };
+            for (const name of labels) {
+              if (!(name in COLOURS)) continue;
+              try {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  name, color: COLOURS[name],
+                });
+              } catch (e) {
+                if (e.status !== 422) throw e;   // 422 = already exists
+              }
+            }
+
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, labels: [...labels],
+              });
+            }
+
+            // `breaking` is the one label that must come OFF when its box is unticked: it
+            // forces a minor bump in release-drafter's version resolver, so a stale one
+            // silently mis-versions the next release. The others are additive — removing
+            // them would fight anything a human labelled by hand. (This is the behaviour the
+            // per-repo labeler had, kept rather than dropped in the migration.)
+            if (!labels.has("breaking")) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: context.issue.number, name: "breaking",
+                });
+              } catch (e) {
+                if (e.status !== 404) throw e;   // 404 = it was not on the PR
+              }
+            }
